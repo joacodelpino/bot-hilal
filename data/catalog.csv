@@ -1,0 +1,53 @@
+product_id,product_name,variant_options,requires_specification,category,aliases
+1,Scacciatas,200g,FALSE,Panificados,
+2,Aceitunas en rodajas verdes,"4.5kg,1.8kg",TRUE,Aceitunas en rodajas,
+5,Aceitunas en rodajas negras,"4.5kg,1.8kg",TRUE,Aceitunas en rodajas,
+8,Aceitunas rellenas surtidas,"200g,500g,1kg,2kg",TRUE,Aceitunas rellenas,
+12,Aceitunas rellenas con roquefort,200g,FALSE,Aceitunas rellenas,"tarrito de rellenas con roquefort, frasquito de roquefort"
+13,Aceitunas rellenas con palmitos,200g,FALSE,Aceitunas rellenas,
+14,Aceitunas rellenas con nuez,200g,FALSE,Aceitunas rellenas,
+15,Aceitunas rellenas con morron,200g,FALSE,Aceitunas rellenas,
+16,Aceitunas rellenas con atun,200g,FALSE,Aceitunas rellenas,
+17,Aceitunas rellenas con salame,200g,FALSE,Aceitunas rellenas,
+18,Aceitunas rellenas con roquefort,200g,FALSE,Aceitunas rellenas,
+20,Aceitunas rellenas con queso provolone,200g,FALSE,Aceitunas rellenas,
+21,Aceitunas rellenas con provolone,200g,FALSE,Aceitunas rellenas,
+22,Aceitunas rellenas con pasa de uva,200g,FALSE,Aceitunas rellenas,
+23,Aceitunas rellenas con nuez,200g,FALSE,Aceitunas rellenas,
+24,Aceitunas rellenas con jamon crudo,200g,FALSE,Aceitunas rellenas,
+25,Aceitunas rellenas con jamon cocido,200g,FALSE,Aceitunas rellenas,
+27,Aceitunas rellenas con almendra,200g,FALSE,Aceitunas rellenas,
+28,Aceitunas rellenas con alcaparras,200g,FALSE,Aceitunas rellenas,
+29,Pickles decorados,500g,FALSE,Encurtidos y conservas,
+30,Pickles,"200g,500g",TRUE,Encurtidos y conservas,
+32,Pepinos en vinagre,200g,FALSE,Encurtidos y conservas,
+35,Pasta de aceitunas verdes,300g,FALSE,Pastas de aceituna,
+36,Pasta de aceitunas negras,300g,FALSE,Pastas de aceituna,
+38,Morrones pelados,200g,TRUE,Encurtidos y conservas,
+39,Aceitunas descarozadas verdes,"1.8kg,4.5kg",TRUE,Aceitunas descarozadas (granel),
+40,Aceitunas descarozadas negras,"1.8kg,4.5kg",TRUE,Aceitunas descarozadas (granel),
+41,Cebollitas en vinagre,200g,FALSE,Encurtidos y conservas,
+42,Berenjenas en escabeche,300g,FALSE,Encurtidos y conservas,
+43,Antipasto,"200g,500g",TRUE,Encurtidos y conservas,
+44,Alcaparras,200g,FALSE,Encurtidos y conservas,
+45,Aji huchukita,100g,FALSE,Encurtidos y conservas,
+46,Aji,"100g,300g,900g",TRUE,Encurtidos y conservas,
+47,Aceitunas (vidrio) verdes 0,"200g,500g,1kg,2kg",TRUE,Aceitunas en vidrio (calibre),"aceituna verde grande vidrio, frasco de aceituna verde grande"
+48,Aceitunas (vidrio) verdes 00,"200g,500g,1kg,2kg",TRUE,Aceitunas en vidrio (calibre),"aceituna verde gigante vidrio, aceituna verde extra grande, frasco grande de verdes"
+49,Aceitunas (vidrio) negras 0,"200g,500g,1kg,2kg",TRUE,Aceitunas en vidrio (calibre),"aceituna negra grande vidrio, frasco de aceituna negra grande"
+50,Aceitunas (vidrio) negras 00,"200g,500g,1kg,2kg",TRUE,Aceitunas en vidrio (calibre),"aceituna negra gigante vidrio, aceituna negra extra grande, frasco grande de negras"
+51,Aceitunas verdes fileteadas,200g,FALSE,Aceitunas fileteadas/descarozadas (vidrio chico),
+52,Aceitunas verdes descarozadas,200g,FALSE,Aceitunas fileteadas/descarozadas (vidrio chico),
+53,Aceitunas negras fileteadas,200g,FALSE,Aceitunas fileteadas/descarozadas (vidrio chico),
+54,Aceitunas negras descarozadas,200g,FALSE,Aceitunas fileteadas/descarozadas (vidrio chico),
+55,Aceitunas griegas en aceite,200g,FALSE,Aceitunas griegas,
+56,Aceituna PET verde N°1,"275g,500g,1kg,2kg,5kg",TRUE,Aceitunas PET (calibre),"aceituna verde grande PET, bolsa de aceituna verde grande"
+57,Aceituna PET verde N°0,"275g,500g,1kg,2kg,5kg",TRUE,Aceitunas PET (calibre),
+58,Aceituna PET verde N°00,"275g,500g,1kg,2kg,5kg",TRUE,Aceitunas PET (calibre),"aceituna verde gigante PET, aceituna verde extra grande PET"
+59,Aceituna PET negra N°1,"275g,500g,1kg,2kg,5kg",TRUE,Aceitunas PET (calibre),aceituna negra grande PET
+60,Aceituna PET negra N°0,"275g,500g,1kg,2kg,5kg",TRUE,Aceitunas PET (calibre),
+61,Aceituna PET negra N°00,"275g,500g,1kg,2kg,5kg",TRUE,Aceitunas PET (calibre),"aceituna negra gigante PET, aceituna negra extra grande PET"
+62,Aceitunas griegas,"500g,1kg",TRUE,Aceitunas griegas,
+63,Aceite de oliva (vidrio),"250ml,500ml,1L",TRUE,Aceites de oliva,
+64,Aceite de oliva PET,"250ml,500ml,1L,2L,5L",TRUE,Aceites de oliva,
+65,Aceite de oliva AOVE,"2L,5L",TRUE,Aceites de oliva,"AOVE, aove"

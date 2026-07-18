@@ -1,0 +1,29 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model pedidos_en_curso {
+  telefono_cliente     String   @id
+  estado               String   @default("iniciado") // "iniciado" | "armando_pedido" | "confirmado"
+  items                Json     @default("[]")
+  nombre               String?
+  apellido             String?
+  direccion            String?
+  horario              String?
+  notas                String?
+  ultima_actualizacion DateTime @updatedAt
+}
+
+model contactos {
+  telefono                     String    @id
+  nombre_apellido              String?
+  primera_vez                  DateTime  @default(now())
+  ultima_interaccion           DateTime  @updatedAt
+  cantidad_pedidos_confirmados Int       @default(0)
+  ultimo_pedido_items          Json?
+}
