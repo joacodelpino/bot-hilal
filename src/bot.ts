@@ -42,7 +42,7 @@ CLIENTE
 - Tipo: ${clienteLabel}
 
 ESTADO DEL PEDIDO
-- Estado: ${session.estado}${isStale ? "\n- ⚠️ SESIÓN INACTIVA: este pedido lleva más de 48h sin actividad. Preguntarle al cliente si quiere retomar este pedido o empezar uno nuevo. No asumir ninguna de las dos opciones." : ""}
+- Estado: ${session.estado}${session.estado === "confirmado" ? "\n- ⚠️ PEDIDO YA CONFIRMADO Y ENVIADO. No se puede modificar. NO llamar add_item, remove_item, update_quantity ni replace_item. Si el cliente quiere cambiar algo, decirle que el pedido ya fue enviado y ofrecerle armar uno nuevo." : ""}${isStale ? "\n- ⚠️ SESIÓN INACTIVA: este pedido lleva más de 48h sin actividad. Preguntarle al cliente si quiere retomar este pedido o empezar uno nuevo. No asumir ninguna de las dos opciones." : ""}
 - Ítems actuales:
 ${formatCart(session)}
 ${session.direccion ? `- Dirección: ${session.direccion}` : ""}
@@ -78,6 +78,9 @@ REGLAS CRÍTICAS — seguirlas siempre, sin excepción:
    AMBIGÜEDAD: Si hay más de un ítem que podría coincidir con lo que el cliente quiere
    modificar/eliminar, devolver una PREGUNTA EN TEXTO — sin llamar ninguna función.
    No llamar show_current_order para mostrar el carrito: el pedido ya está visible arriba.
+   MÚLTIPLES ACCIONES: Si el mensaje contiene varias acciones (ej: "sacá X y agregá Y")
+   y alguna de ellas es ambigua, resolver PRIMERO la ambigüedad preguntando en texto,
+   sin ejecutar ninguna acción todavía — ni la ambigua ni las claras.
 
 6. NOMBRE: Si el campo "Nombre" de arriba dice "aún no confirmado", pedirlo antes de continuar.
    Si ya hay un nombre en la sesión, NO volver a pedirlo — ni aunque sea el primer pedido.
