@@ -5,6 +5,20 @@ import { processMessage } from "./bot.ts";
 
 const PORT = parseInt(process.env.BOT_PORT ?? "3001");
 
+// ── Cola en memoria por teléfono — serializa mensajes del mismo cliente ─────
+const phoneQueues = new Map<string, Promise<void>>();
+
+function enqueue(telefono: string, fn: () => Promise<void>): void {
+  const prev = phoneQueues.get(telefono) ?? Promise.resolve();
+  const next = prev.then(fn, fn);
+  phoneQueues.set(telefono, next);
+  next.finally(() => {
+    if (phoneQueues.get(telefono) === next) {
+      phoneQueues.delete(telefono);
+    }
+  });
+}
+
 Bun.serve({
   port: PORT,
   async fetch(req) {
@@ -24,13 +38,12 @@ Bun.serve({
           return new Response("Bad Request", { status: 400 });
         }
 
-        // Meta espera 200 inmediato — procesamos en background
-        (async () => {
-          try {
-            const messages = parseIncomingMessages(body);
+        // Meta espera 200 inmediato — procesamos en background, serializado por teléfono
+        const messages = parseIncomingMessages(body);
 
-            for (const msg of messages) {
-              // Solo procesamos texto por ahora (audio/imagen: solo espejar)
+        for (const msg of messages) {
+          enqueue(msg.from, async () => {
+            try {
               let bot_paused = false;
               let conv_id: string | undefined;
               try {
@@ -39,8 +52,8 @@ Bun.serve({
                 console.error("[chatwoot] Error espejando mensaje (continuando):", err);
               }
 
-              if (bot_paused) continue;
-              if (msg.type !== "text" || !msg.text) continue;
+              if (bot_paused) return;
+              if (msg.type !== "text" || !msg.text) return;
 
               const reply = await processMessage(msg.from, msg.text);
               if (reply) {
@@ -53,11 +66,11 @@ Bun.serve({
                   }
                 }
               }
+            } catch (err) {
+              console.error("[webhook] Error procesando mensaje:", err);
             }
-          } catch (err) {
-            console.error("[webhook] Error procesando mensaje:", err);
-          }
-        })();
+          });
+        }
 
         return new Response("OK", { status: 200 });
       }

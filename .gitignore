@@ -3,3 +3,4 @@ node_modules/
 .prisma/
 prisma/migrations/
 dist/
+docs/
