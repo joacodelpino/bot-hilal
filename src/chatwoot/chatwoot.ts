@@ -82,10 +82,14 @@ async function findOrCreateConversation(contactId: string): Promise<string> {
   return newConv.id;
 }
 
-async function mirrorTextMessage(convId: string, text: string): Promise<void> {
+async function mirrorTextMessage(convId: string, text: string, outgoing = false): Promise<void> {
   await chatwootFetch(`/conversations/${convId}/messages`, {
     method: "POST",
-    body: JSON.stringify({ content: text, message_type: "incoming", private: false }),
+    body: JSON.stringify({
+      content: text,
+      message_type: outgoing ? "outgoing" : "incoming",
+      private: false,
+    }),
   });
 }
 
@@ -145,6 +149,10 @@ async function updateContactAttributes(
  * Espeja el mensaje a Chatwoot y devuelve si el bot debe pausarse.
  * Llamar en cada mensaje entrante, ANTES de procesar con el bot.
  */
+export async function mirrorBotReply(convId: string, text: string): Promise<void> {
+  await mirrorTextMessage(convId, text, true);
+}
+
 export async function mirrorAndCheckStatus(
   msg: IncomingMessage,
   telefono: string

@@ -1,5 +1,5 @@
 import { handleVerification, parseIncomingMessages } from "./whatsapp/webhook.ts";
-import { mirrorAndCheckStatus } from "./chatwoot/chatwoot.ts";
+import { mirrorAndCheckStatus, mirrorBotReply } from "./chatwoot/chatwoot.ts";
 import { sendTextMessage } from "./whatsapp/sender.ts";
 import { processMessage } from "./bot.ts";
 
@@ -32,8 +32,9 @@ Bun.serve({
             for (const msg of messages) {
               // Solo procesamos texto por ahora (audio/imagen: solo espejar)
               let bot_paused = false;
+              let conv_id: string | undefined;
               try {
-                ({ bot_paused } = await mirrorAndCheckStatus(msg, msg.from));
+                ({ bot_paused, conv_id } = await mirrorAndCheckStatus(msg, msg.from));
               } catch (err) {
                 console.error("[chatwoot] Error espejando mensaje (continuando):", err);
               }
@@ -44,6 +45,13 @@ Bun.serve({
               const reply = await processMessage(msg.from, msg.text);
               if (reply) {
                 await sendTextMessage(msg.from, reply);
+                if (conv_id) {
+                  try {
+                    await mirrorBotReply(conv_id, reply);
+                  } catch (err) {
+                    console.error("[chatwoot] Error espejando reply (continuando):", err);
+                  }
+                }
               }
             }
           } catch (err) {
