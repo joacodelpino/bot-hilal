@@ -31,7 +31,12 @@ Bun.serve({
 
             for (const msg of messages) {
               // Solo procesamos texto por ahora (audio/imagen: solo espejar)
-              const { bot_paused } = await mirrorAndCheckStatus(msg, msg.from);
+              let bot_paused = false;
+              try {
+                ({ bot_paused } = await mirrorAndCheckStatus(msg, msg.from));
+              } catch (err) {
+                console.error("[chatwoot] Error espejando mensaje (continuando):", err);
+              }
 
               if (bot_paused) continue;
               if (msg.type !== "text" || !msg.text) continue;
