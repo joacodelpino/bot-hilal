@@ -39,7 +39,6 @@ async function findOrCreateContact(telefono: string, nombre?: string | null): Pr
   const searchRes = await chatwootFetch(
     `/contacts/search?q=${phone}&include_contacts=true`
   );
-  console.log("[chatwoot] searchRes:", JSON.stringify(searchRes).slice(0, 300));
   const contacts = Array.isArray(searchRes?.payload)
     ? searchRes.payload
     : (searchRes?.payload?.contacts ?? []);
@@ -63,7 +62,6 @@ async function findOrCreateContact(telefono: string, nombre?: string | null): Pr
     method: "POST",
     body: JSON.stringify({ phone_number: `+${phone}`, name: nombre ?? phone }),
   });
-  console.log("[chatwoot] created:", JSON.stringify(created).slice(0, 300));
   return (created.id ?? created?.payload?.id ?? created?.payload?.contact?.id) as string;
 }
 
@@ -121,7 +119,7 @@ async function mirrorMediaMessage(
   );
 }
 
-async function isConversationPaused(convId: string): Promise<boolean> {
+export async function isConversationPaused(convId: string): Promise<boolean> {
   const conv = await chatwootFetch(`/conversations/${convId}`);
   // "Pausado" = tiene un agente humano asignado (funcionalidad nativa de Chatwoot)
   return !!conv?.meta?.assignee;

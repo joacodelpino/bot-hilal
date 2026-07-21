@@ -1,5 +1,5 @@
 import { handleVerification, parseIncomingMessages } from "./whatsapp/webhook.ts";
-import { mirrorAndCheckStatus, mirrorBotReply } from "./chatwoot/chatwoot.ts";
+import { mirrorAndCheckStatus, mirrorBotReply, isConversationPaused } from "./chatwoot/chatwoot.ts";
 import { sendTextMessage } from "./whatsapp/sender.ts";
 import { processMessage } from "./bot.ts";
 
@@ -53,10 +53,26 @@ Bun.serve({
               }
 
               if (bot_paused) return;
-              if (msg.type !== "text" || !msg.text) return;
+
+              // Multimedia no soportada — responder y continuar
+              if (msg.type !== "text" || !msg.text) {
+                const mediaReply =
+                  msg.type === "audio"
+                    ? "Todavía no puedo escuchar audios. ¿Podés escribirme en texto lo que necesitás?"
+                    : "No puedo procesar ese tipo de mensaje (imágenes, ubicaciones, etc.). ¿Podés describirlo en texto?";
+                await sendTextMessage(msg.from, mediaReply);
+                return;
+              }
 
               const reply = await processMessage(msg.from, msg.text);
               if (reply) {
+                // Revalidar bot_paused antes de enviar: un agente pudo
+                // asignarse la conversación mientras OpenAI procesaba
+                if (conv_id) {
+                  try {
+                    if (await isConversationPaused(conv_id)) return;
+                  } catch {}
+                }
                 await sendTextMessage(msg.from, reply);
                 if (conv_id) {
                   try {
