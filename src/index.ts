@@ -3,7 +3,7 @@ import { mirrorAndCheckStatus } from "./chatwoot/chatwoot.ts";
 import { sendTextMessage } from "./whatsapp/sender.ts";
 import { processMessage } from "./bot.ts";
 
-const PORT = parseInt(process.env.PORT ?? "3001");
+const PORT = parseInt(process.env.BOT_PORT ?? "3001");
 
 Bun.serve({
   port: PORT,
