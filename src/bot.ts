@@ -25,7 +25,7 @@ const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o";
 
 // ─── System prompt ────────────────────────────────────────────────────────────
 
-export function buildSystemPrompt(session: Session, cantidadPedidos: number): string {
+export function buildSystemPrompt(session: Session, cantidadPedidos: number, isStale = false): string {
   const catalogJson = JSON.stringify(getAllProducts(), null, 2);
   const categories = getCategories().join(", ");
   const isNew = cantidadPedidos === 0;
@@ -42,7 +42,7 @@ CLIENTE
 - Tipo: ${clienteLabel}
 
 ESTADO DEL PEDIDO
-- Estado: ${session.estado}
+- Estado: ${session.estado}${isStale ? "\n- ⚠️ SESIÓN INACTIVA: este pedido lleva más de 48h sin actividad. Preguntarle al cliente si quiere retomar este pedido o empezar uno nuevo. No asumir ninguna de las dos opciones." : ""}
 - Ítems actuales:
 ${formatCart(session)}
 ${session.direccion ? `- Dirección: ${session.direccion}` : ""}
@@ -67,6 +67,10 @@ REGLAS CRÍTICAS — seguirlas siempre, sin excepción:
 
 4. CANTIDADES: update_quantity recibe el valor FINAL, no un delta.
    "cambia los 3 por 9" → nueva_cantidad=9 (nunca 3+9=12).
+   Si el cliente da una cantidad vaga o imprecisa ("unas cuantas", "bastante", "varias"),
+   preguntar el número exacto. Solo aceptar cantidades numéricas concretas.
+   "una docena" = 12 (eso sí es concreto). "medio kilo" no es cantidad de unidades,
+   preguntar cuántas unidades quiere.
 
 5. MODIFICACIONES SIN AMBIGÜEDAD: Para add_item, remove_item, update_quantity y replace_item,
    actuar directamente sin pedir confirmación previa. El cliente ve el pedido actualizado
@@ -77,9 +81,16 @@ REGLAS CRÍTICAS — seguirlas siempre, sin excepción:
 
 6. NOMBRE: Si el campo "Nombre" de arriba dice "aún no confirmado", pedirlo antes de continuar.
    Si ya hay un nombre en la sesión, NO volver a pedirlo — ni aunque sea el primer pedido.
+   El nombre capturado es SIEMPRE el de quien escribe (quien hace el pedido), nunca el de
+   un tercero. Si dice "es para mi vecina María", el nombre del pedido sigue siendo el de
+   quien está chateando, no "María".
 
 7. CONFIRMACIÓN: Solo llamar confirm_order() cuando el cliente haya dicho explícitamente
-   que quiere confirmar el pedido.
+   que quiere confirmar el pedido. Antes de confirmar, preguntar: "¿Querés agregar o
+   cambiar algo más, o confirmamos?"
+   Si el estado ya es "confirmado" y el cliente pide modificar, NO reabrir el pedido.
+   Responder: "Tu pedido anterior ya fue enviado. ¿Querés armar uno nuevo?" y si acepta,
+   llamar cancel_order() para resetear la sesión y empezar de cero.
 
 8. PRECIOS: Nunca dar, estimar ni confirmar un precio. Si el cliente pregunta cuánto sale
    algo, responder: "Los precios los maneja el equipo comercial, te van a contactar cuando
@@ -154,17 +165,23 @@ async function executeTool(
  * Procesa un mensaje entrante del cliente y retorna la respuesta del bot.
  * El caller es responsable de enviar la respuesta al cliente.
  */
+const SESSION_TTL_MS = 48 * 60 * 60 * 1000; // 48 horas
+
 export async function processMessage(
   telefono: string,
   texto: string
 ): Promise<string> {
-  const [session, contact] = await Promise.all([
+  let [session, contact] = await Promise.all([
     getOrCreateSession(telefono),
     getContact(telefono),
   ]);
 
+  // Si la sesión tiene items y está abandonada (más de 48h sin actividad), notificar al LLM
+  const sessionAge = Date.now() - new Date(session.ultima_actualizacion).getTime();
+  const isStale = session.items.length > 0 && sessionAge > SESSION_TTL_MS;
+
   const cantidadPedidos = contact?.cantidad_pedidos_confirmados ?? 0;
-  const systemPrompt = buildSystemPrompt(session, cantidadPedidos);
+  const systemPrompt = buildSystemPrompt(session, cantidadPedidos, isStale);
 
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: "system", content: systemPrompt },
