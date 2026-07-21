@@ -11,6 +11,7 @@ function toSession(row: any): Session {
     telefono_cliente: row.telefono_cliente,
     estado: row.estado as OrderStatus,
     items: row.items as CartItem[],
+    historial: (row.historial as any[]) ?? [],
     nombre: row.nombre,
     apellido: row.apellido,
     direccion: row.direccion,
@@ -109,6 +110,6 @@ export async function replaceItem(
 export async function clearSession(telefono: string): Promise<void> {
   await prisma.pedidos_en_curso.update({
     where: { telefono_cliente: telefono },
-    data: { items: [], estado: "iniciado", direccion: null, horario: null, notas: null },
+    data: { items: [], historial: [], estado: "iniciado", direccion: null, horario: null, notas: null },
   });
 }

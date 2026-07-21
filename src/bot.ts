@@ -13,7 +13,7 @@ import {
   handleUpdateDeliveryInfo,
   formatCart,
 } from "./functions/handlers.ts";
-import { getOrCreateSession } from "./session/session.ts";
+import { getOrCreateSession, getSession, updateSession } from "./session/session.ts";
 import { getContact } from "./session/contacts.ts";
 import { getAllProducts, getCategories } from "./catalog/catalog.ts";
 import type { Session } from "./types.ts";
@@ -110,6 +110,11 @@ REGLAS CRÍTICAS — seguirlas siempre, sin excepción:
     Si necesitás hacer un pedido nuevo, estoy para ayudarte."
     No intentar resolver reclamos ni inventar soluciones.
 
+11. FORMATO: Las respuestas se envían por WhatsApp. NO usar markdown: nada de asteriscos (*),
+    numerales (#), backticks (\`) ni ningún otro formato markdown. Escribir en texto plano.
+    Para listas usar guiones simples (- item). Para énfasis, usar MAYÚSCULAS o simplemente
+    escribir naturalmente.
+
 CATÁLOGO COMPLETO (usar para resolver product_id):
 ${catalogJson}`;
 }
@@ -174,6 +179,24 @@ async function executeTool(
  * El caller es responsable de enviar la respuesta al cliente.
  */
 const SESSION_TTL_MS = 48 * 60 * 60 * 1000; // 48 horas
+const MAX_HISTORY = 20; // máximo de mensajes en historial
+
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "$1")   // **bold** → bold
+    .replace(/\*(.+?)\*/g, "$1")        // *italic* → italic
+    .replace(/^#{1,6}\s+/gm, "")        // ## heading → heading
+    .replace(/`([^`]+)`/g, "$1");       // `code` → code
+}
+
+/** Recorta historial a MAX_HISTORY y asegura que empiece con un mensaje de usuario */
+function trimHistorial(msgs: any[]): any[] {
+  let trimmed = msgs.slice(-MAX_HISTORY);
+  while (trimmed.length > 0 && trimmed[0].role !== "user") {
+    trimmed = trimmed.slice(1);
+  }
+  return trimmed;
+}
 
 export async function processMessage(
   telefono: string,
@@ -191,12 +214,18 @@ export async function processMessage(
   const cantidadPedidos = contact?.cantidad_pedidos_confirmados ?? 0;
   const systemPrompt = buildSystemPrompt(session, cantidadPedidos, isStale);
 
+  // Cargar historial previo de la sesión
+  const historial = (session.historial ?? []) as OpenAI.Chat.ChatCompletionMessageParam[];
+  const historialLength = historial.length;
+
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: "system", content: systemPrompt },
+    ...historial,
     { role: "user", content: texto },
   ];
 
   // Loop de tool calling: el modelo puede llamar múltiples funciones en un turno
+  let finalText = "";
   while (true) {
     const response = await openai.chat.completions.create({
       model: MODEL,
@@ -210,12 +239,9 @@ export async function processMessage(
 
     messages.push(choice.message);
 
-    if (choice.finish_reason === "stop") {
-      return choice.message.content ?? "";
-    }
-
-    if (choice.finish_reason !== "tool_calls" || !choice.message.tool_calls?.length) {
-      return choice.message.content ?? "";
+    if (choice.finish_reason === "stop" || choice.finish_reason !== "tool_calls" || !choice.message.tool_calls?.length) {
+      finalText = choice.message.content ?? "";
+      break;
     }
 
     // Ejecutar todas las tool calls del turno
@@ -229,4 +255,14 @@ export async function processMessage(
       });
     }
   }
+
+  // Guardar historial: solo los mensajes nuevos de este turno, sobre lo que la DB tenga ahora
+  // (los handlers de confirm/cancel/repeat ya limpiaron historial si correspondía)
+  const newTurnMessages = messages.slice(1 + historialLength); // excluir system + historial viejo
+  const freshSession = await getOrCreateSession(telefono);
+  const baseHistorial = (freshSession.historial ?? []) as any[];
+  const updatedHistorial = trimHistorial([...baseHistorial, ...newTurnMessages]);
+  await updateSession(telefono, { historial: updatedHistorial });
+
+  return stripMarkdown(finalText);
 }

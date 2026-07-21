@@ -121,7 +121,7 @@ export async function handleConfirmOrder(telefono: string): Promise<ToolResult> 
 
   await sendOrderToCRM(confirmedOrder);
   await recordConfirmedOrder(telefono, session.items);
-  await updateSession(telefono, { estado: "confirmado" });
+  await updateSession(telefono, { estado: "confirmado", historial: [] });
 
   return {
     ok: true,
@@ -161,7 +161,7 @@ export async function handleRepeatLastOrder(telefono: string): Promise<ToolResul
     line_id: randomUUID(),
   }));
 
-  const session = await updateSession(telefono, { items, estado: "armando_pedido" });
+  const session = await updateSession(telefono, { items, estado: "armando_pedido", historial: [] });
   return {
     ok: true,
     session,

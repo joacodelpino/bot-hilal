@@ -11,6 +11,7 @@ model pedidos_en_curso {
   telefono_cliente     String   @id
   estado               String   @default("iniciado") // "iniciado" | "armando_pedido" | "confirmado"
   items                Json     @default("[]")
+  historial            Json     @default("[]")
   nombre               String?
   apellido             String?
   direccion            String?

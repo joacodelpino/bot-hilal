@@ -26,6 +26,7 @@ export interface Session {
   telefono_cliente: string;
   estado: OrderStatus;
   items: CartItem[];
+  historial: any[];
   nombre: string | null;
   apellido: string | null;
   direccion: string | null;
