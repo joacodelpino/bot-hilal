@@ -7,7 +7,7 @@ import {
   getOrCreateSession,
   clearSession,
 } from "../session/session.ts";
-import { recordConfirmedOrder, getContact } from "../session/contacts.ts";
+import { recordConfirmedOrder, getContact, upsertContact } from "../session/contacts.ts";
 import { sendOrderToCRM } from "../crm-client.ts";
 import { getProduct, validateVariants } from "../catalog/catalog.ts";
 import type { CartItem, Session } from "../types.ts";
@@ -166,6 +166,26 @@ export async function handleRepeatLastOrder(telefono: string): Promise<ToolResul
     ok: true,
     session,
     message: `Cargué tu último pedido como punto de partida. Podés modificarlo o confirmarlo directamente:\n${formatCart(session)}`,
+  };
+}
+
+export async function handleUpdateClientName(
+  telefono: string,
+  args: { nombre: string; apellido?: string }
+): Promise<ToolResult> {
+  const session = await updateSession(telefono, {
+    nombre: args.nombre,
+    ...(args.apellido && { apellido: args.apellido }),
+  });
+
+  // Persistir también en la tabla de contactos para no volver a preguntar
+  const nombreCompleto = [args.nombre, args.apellido].filter(Boolean).join(" ");
+  await upsertContact(telefono, nombreCompleto);
+
+  return {
+    ok: true,
+    session,
+    message: `Nombre registrado: ${nombreCompleto}. ¿En qué te puedo ayudar?`,
   };
 }
 

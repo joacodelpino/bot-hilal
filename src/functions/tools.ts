@@ -162,6 +162,29 @@ export const tools: OpenAI.Chat.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
+      name: "update_client_name",
+      description:
+        "Guardar el nombre (y opcionalmente apellido) del cliente. Llamar esta función apenas el cliente diga su nombre, ANTES de continuar con el pedido.",
+      parameters: {
+        type: "object",
+        properties: {
+          nombre: {
+            type: "string",
+            description: "Nombre del cliente.",
+          },
+          apellido: {
+            type: "string",
+            description: "Apellido del cliente (si lo dio).",
+          },
+        },
+        required: ["nombre"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "update_delivery_info",
       description:
         "Registrar datos de entrega: dirección, horario preferido y notas. Usar solo para metadata de entrega, nunca para completar variantes de un producto.",

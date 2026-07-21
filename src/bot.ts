@@ -9,6 +9,7 @@ import {
   handleCancelOrder,
   handleShowCurrentOrder,
   handleRepeatLastOrder,
+  handleUpdateClientName,
   handleUpdateDeliveryInfo,
   formatCart,
 } from "./functions/handlers.ts";
@@ -151,6 +152,10 @@ async function executeTool(
     }
     case "repeat_last_order": {
       const r = await handleRepeatLastOrder(telefono);
+      return r.ok ? r.message : `Error: ${r.error}`;
+    }
+    case "update_client_name": {
+      const r = await handleUpdateClientName(telefono, args as any);
       return r.ok ? r.message : `Error: ${r.error}`;
     }
     case "update_delivery_info": {
