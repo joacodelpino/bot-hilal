@@ -5,6 +5,7 @@ import type { ChatwootResult, IncomingMessage } from "../types.ts";
 const BASE_URL = process.env.CHATWOOT_BASE_URL!;
 const API_TOKEN = process.env.CHATWOOT_API_TOKEN!;
 const ACCOUNT_ID = process.env.CHATWOOT_ACCOUNT_ID ?? "1";
+const INBOX_ID = process.env.CHATWOOT_INBOX_ID!;
 
 function headers() {
   return {
@@ -63,17 +64,15 @@ async function findOrCreateContact(telefono: string, nombre?: string | null): Pr
 
 async function findOrCreateConversation(contactId: string): Promise<string> {
   const convRes = await chatwootFetch(`/contacts/${contactId}/conversations`);
-  const openConv = convRes?.payload?.find((c: any) => c.status === "open");
+  // Solo usar conversaciones abiertas que pertenezcan al inbox API
+  const openConv = convRes?.payload?.find(
+    (c: any) => c.status === "open" && String(c.inbox_id) === String(INBOX_ID)
+  );
   if (openConv) return openConv.id;
-
-  // Crear nueva conversación — requiere inbox_id (debe existir un inbox de WhatsApp en Chatwoot)
-  const inbox = await chatwootFetch("/inboxes");
-  const whatsappInbox = inbox?.payload?.find((i: any) => i.channel_type === "Channel::Whatsapp");
-  if (!whatsappInbox) throw new Error("No se encontró inbox de WhatsApp en Chatwoot");
 
   const newConv = await chatwootFetch("/conversations", {
     method: "POST",
-    body: JSON.stringify({ contact_id: contactId, inbox_id: whatsappInbox.id }),
+    body: JSON.stringify({ contact_id: contactId, inbox_id: INBOX_ID }),
   });
   return newConv.id;
 }
