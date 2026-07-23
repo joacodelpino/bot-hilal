@@ -6,9 +6,9 @@
  */
 
 import OpenAI from "openai";
-import { tools } from "./functions/tools.ts";
-import { buildSystemPrompt } from "./bot.ts";
-import type { Session } from "./types.ts";
+import { tools } from "../functions/tools.ts";
+import { buildSystemPrompt } from "../bot.ts";
+import type { Session } from "../types.ts";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const MODEL = process.env.OPENAI_MODEL ?? "pt-5.4-mini";

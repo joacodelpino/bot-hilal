@@ -9,9 +9,9 @@
 
 import { PrismaClient } from "@prisma/client";
 import OpenAI from "openai";
-import { tools } from "./functions/tools.ts";
-import { buildSystemPrompt } from "./bot.ts";
-import type { Session, CartItem } from "./types.ts";
+import { tools } from "../functions/tools.ts";
+import { buildSystemPrompt } from "../bot.ts";
+import type { Session, CartItem } from "../types.ts";
 
 const prisma = new PrismaClient();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
