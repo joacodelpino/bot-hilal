@@ -22,7 +22,7 @@
             │              │              │
      ┌──────▼──────┐ ┌────▼─────┐ ┌──────▼──────┐
      │   Chatwoot   │ │  OpenAI  │ │  Supabase   │
-     │ (Channel API)│ │  GPT-4o  │ │ PostgreSQL  │
+     │ (Channel API)│ │   GPT-5o │ │ PostgreSQL  │
      └─────────────┘ └──────────┘ └─────────────┘
                                          │
                                   ┌──────▼──────┐

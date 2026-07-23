@@ -25,7 +25,7 @@ Todas las variables requeridas para ejecutar el bot. Configurar en `.env` (local
 ### Chatwoot
 | Variable | Descripción | Ejemplo |
 |---|---|---|
-| `CHATWOOT_BASE_URL` | URL base de Chatwoot (sin trailing slash) | `http://66.97.38.101:3000` |
+| `CHATWOOT_BASE_URL` | URL base de Chatwoot (sin trailing slash) | `http://{VPS_IP}:3000` |
 | `CHATWOOT_API_TOKEN` | Token de API del agente/admin en Chatwoot | `abc123...` |
 | `CHATWOOT_ACCOUNT_ID` | ID de la cuenta en Chatwoot (default: `1`) | `1` |
 | `CHATWOOT_INBOX_ID` | ID del inbox tipo Channel::Api | `3` |

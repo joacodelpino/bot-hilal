@@ -4,11 +4,10 @@
 
 ```
 ┌────────────────────────────────────────────────┐
-│              VPS DonWeb (66.97.38.101)         │
-│              SSH puerto 5258                    │
+│              VPS DonWeb                        │
 │                                                │
 │  ┌──────────────────────────────────────────┐  │
-│  │              Dokploy                      │  │
+│  │              Dokploy                     │  │
 │  │  ┌────────────┐  ┌───────────────────┐   │  │
 │  │  │  Traefik   │  │   bot-hilal       │   │  │
 │  │  │  (reverse  │──│   Bun :3001       │   │  │
@@ -31,7 +30,7 @@
 ## Dominio
 
 - **Dominio:** `bot.hilalolivas.com.ar`
-- **DNS:** Registro A apuntando a `66.97.38.101` (configurado en el panel de DonWeb)
+- **DNS:** Registro A apuntando a {VPS_IP} (configurado en el panel de DonWeb)
 - **TLS:** Certificado automático via Let's Encrypt (Traefik certresolver)
 
 ## Docker
@@ -90,7 +89,7 @@ git add -A && git commit -m "..." && git push origin main
 ### 2. Build en la VPS
 
 ```bash
-ssh -p 5258 root@66.97.38.101
+ssh -p {SSH_PORT} root@{VPS_IP}
 cd /opt/bot-hilal
 git pull
 docker build -t bot-hilal:latest .
