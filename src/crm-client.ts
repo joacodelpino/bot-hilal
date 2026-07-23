@@ -12,10 +12,21 @@ export async function sendOrderToCRM(order: ConfirmedOrder): Promise<void> {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${CRM_API_KEY}`,
+      "X-API-Key": CRM_API_KEY,
     },
     body: JSON.stringify(order),
   });
+
+  if (res.status === 401) {
+    console.error(
+      `[CRM AUTH ERROR] El CRM rechazó la request con 401 Unauthorized. ` +
+      `Verificar que CRM_API_KEY coincida con ORDERS_WEBHOOK_API_KEY en el CRM. ` +
+      `Pedido del teléfono ${order.telefono_cliente} NO fue registrado en el CRM.`
+    );
+    throw new Error(
+      `CRM autenticación fallida (401): la API key del bot no coincide con la del CRM`
+    );
+  }
 
   if (!res.ok) {
     const body = await res.text();
