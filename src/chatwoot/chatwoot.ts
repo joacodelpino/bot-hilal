@@ -80,16 +80,28 @@ async function findOrCreateConversation(contactId: string): Promise<string> {
   return newConv.id;
 }
 
+// IDs de mensajes creados por el bot — para ignorarlos en el webhook outbound
+const botMessageIds = new Set<number>();
+
 async function mirrorTextMessage(convId: string, text: string, outgoing = false): Promise<void> {
-  await chatwootFetch(`/conversations/${convId}/messages`, {
+  const result = await chatwootFetch(`/conversations/${convId}/messages`, {
     method: "POST",
     body: JSON.stringify({
       content: text,
       message_type: outgoing ? "outgoing" : "incoming",
       private: false,
-      content_attributes: outgoing ? { bot_generated: true } : {},
     }),
   });
+
+  // Trackear mensajes outgoing del bot para no reenviarlos desde el webhook
+  if (outgoing && result?.id) {
+    botMessageIds.add(result.id);
+    // Limitar tamaño del Set para evitar memory leak
+    if (botMessageIds.size > 500) {
+      const oldest = [...botMessageIds].slice(0, 250);
+      oldest.forEach((id) => botMessageIds.delete(id));
+    }
+  }
 }
 
 async function mirrorMediaMessage(
@@ -170,8 +182,10 @@ export function handleChatwootOutbound(payload: any): {
     return { shouldForward: false, phone: null, content: null };
   }
 
-  // FILTRO CLAVE: ignorar mensajes generados por el bot
-  if (payload.content_attributes?.bot_generated === true) {
+  // FILTRO CLAVE: ignorar mensajes generados por el bot (trackeados por ID)
+  const msgId = payload.id;
+  if (msgId && botMessageIds.has(msgId)) {
+    botMessageIds.delete(msgId);
     return { shouldForward: false, phone: null, content: null };
   }
 
