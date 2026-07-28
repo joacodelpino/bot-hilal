@@ -92,6 +92,18 @@ Bun.serve({
       }
     }
 
+    // ── Webhook Chatwoot outbound (Paso 0: loguear payload para investigar) ─
+    if (url.pathname === "/webhooks/chatwoot-outbound" && req.method === "POST") {
+      let payload: unknown;
+      try {
+        payload = await req.json();
+      } catch {
+        return new Response("Bad Request", { status: 400 });
+      }
+      console.log("[chatwoot-outbound] Payload recibido:", JSON.stringify(payload, null, 2));
+      return new Response("OK", { status: 200 });
+    }
+
     // ── Health check ─────────────────────────────────────────────────────────
     if (url.pathname === "/health" && req.method === "GET") {
       return Response.json({ status: "ok", ts: new Date().toISOString() });
