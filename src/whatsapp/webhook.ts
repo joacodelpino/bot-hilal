@@ -49,6 +49,7 @@ export function parseIncomingMessages(body: unknown): IncomingMessage[] {
           base.text = msg.text?.body;
         } else if (["audio", "image", "document"].includes(msg.type)) {
           base.mediaId = msg[msg.type]?.id;
+          base.caption = msg[msg.type]?.caption;
         }
 
         messages.push(base);

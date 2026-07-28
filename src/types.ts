@@ -56,6 +56,7 @@ export interface IncomingMessage {
   type: MessageType;
   text?: string;
   mediaId?: string;
+  caption?: string;  // texto adjunto a imagen/documento/audio
   timestamp: string;
 }
 

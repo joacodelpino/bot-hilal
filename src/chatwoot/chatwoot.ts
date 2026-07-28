@@ -120,6 +120,9 @@ async function mirrorMediaMessage(
   );
   formData.append("message_type", "incoming");
   formData.append("private", "false");
+  if (msg.caption) {
+    formData.append("content", msg.caption);
+  }
 
   // FormData requiere headers sin Content-Type (browser lo pone automático con boundary)
   await fetch(
