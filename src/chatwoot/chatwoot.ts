@@ -87,6 +87,7 @@ async function mirrorTextMessage(convId: string, text: string, outgoing = false)
       content: text,
       message_type: outgoing ? "outgoing" : "incoming",
       private: false,
+      content_attributes: outgoing ? { bot_generated: true } : {},
     }),
   });
 }
@@ -139,6 +140,57 @@ async function updateContactAttributes(
       },
     }),
   });
+}
+
+// ─── Webhook outbound: Chatwoot → WhatsApp ──────────────────────────────────
+
+/**
+ * Procesa un webhook `message_created` de Chatwoot.
+ * Si el mensaje fue escrito por un agente humano (no por el bot),
+ * lo reenvía al cliente por WhatsApp.
+ * Retorna true si se reenvió, false si se ignoró.
+ */
+export function handleChatwootOutbound(payload: any): {
+  shouldForward: boolean;
+  phone: string | null;
+  content: string | null;
+} {
+  // Solo procesar message_created
+  if (payload.event !== "message_created") {
+    return { shouldForward: false, phone: null, content: null };
+  }
+
+  // Solo procesar mensajes outgoing (respuestas al cliente)
+  if (payload.message_type !== "outgoing") {
+    return { shouldForward: false, phone: null, content: null };
+  }
+
+  // Ignorar mensajes privados (notas internas de Chatwoot)
+  if (payload.private === true) {
+    return { shouldForward: false, phone: null, content: null };
+  }
+
+  // FILTRO CLAVE: ignorar mensajes generados por el bot
+  if (payload.content_attributes?.bot_generated === true) {
+    return { shouldForward: false, phone: null, content: null };
+  }
+
+  // Extraer teléfono del contacto de la conversación
+  const phone = payload.conversation?.meta?.sender?.phone_number;
+  if (!phone) {
+    console.error("[chatwoot-outbound] No se encontró phone_number en el payload");
+    return { shouldForward: false, phone: null, content: null };
+  }
+
+  // Normalizar teléfono: quitar el "+" inicial
+  const normalizedPhone = phone.replace(/^\+/, "");
+
+  const content = payload.content;
+  if (!content) {
+    return { shouldForward: false, phone: null, content: null };
+  }
+
+  return { shouldForward: true, phone: normalizedPhone, content };
 }
 
 // ─── Función principal ────────────────────────────────────────────────────────

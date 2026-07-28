@@ -1,5 +1,5 @@
 import { handleVerification, parseIncomingMessages } from "./whatsapp/webhook.ts";
-import { mirrorAndCheckStatus, mirrorBotReply, isConversationPaused } from "./chatwoot/chatwoot.ts";
+import { mirrorAndCheckStatus, mirrorBotReply, isConversationPaused, handleChatwootOutbound } from "./chatwoot/chatwoot.ts";
 import { sendTextMessage } from "./whatsapp/sender.ts";
 import { processMessage } from "./bot.ts";
 
@@ -92,7 +92,7 @@ Bun.serve({
       }
     }
 
-    // ── Webhook Chatwoot outbound (Paso 0: loguear payload para investigar) ─
+    // ── Webhook Chatwoot outbound (agente humano → WhatsApp) ────────────────
     if (url.pathname === "/webhooks/chatwoot-outbound" && req.method === "POST") {
       let payload: unknown;
       try {
@@ -100,7 +100,19 @@ Bun.serve({
       } catch {
         return new Response("Bad Request", { status: 400 });
       }
-      console.log("[chatwoot-outbound] Payload recibido:", JSON.stringify(payload, null, 2));
+
+      const { shouldForward, phone, content } = handleChatwootOutbound(payload);
+
+      if (shouldForward && phone && content) {
+        console.log(`[chatwoot-outbound] Reenviando mensaje de agente a ${phone}`);
+        // No encolamos — el agente humano tiene prioridad, no depende del bot
+        try {
+          await sendTextMessage(phone, content);
+        } catch (err) {
+          console.error("[chatwoot-outbound] Error enviando a WhatsApp:", err);
+        }
+      }
+
       return new Response("OK", { status: 200 });
     }
 
