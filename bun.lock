@@ -4,11 +4,12 @@
     "": {
       "name": "bot-hilal",
       "dependencies": {
-        "@colbymchenry/codegraph": "^1.5.0",
         "@prisma/client": "^5.22.0",
         "openai": "^4.77.0",
+        "zod": "^4.4.3",
       },
       "devDependencies": {
+        "@colbymchenry/codegraph": "^1.5.0",
         "@types/bun": "latest",
         "prisma": "^5.22.0",
       },
@@ -122,5 +123,7 @@
     "webidl-conversions": ["webidl-conversions@3.0.1", "", {}, "sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ=="],
 
     "whatwg-url": ["whatwg-url@5.0.0", "", { "dependencies": { "tr46": "~0.0.3", "webidl-conversions": "^3.0.0" } }, "sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw=="],
+
+    "zod": ["zod@4.4.3", "", {}, "sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ=="],
   }
 }

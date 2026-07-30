@@ -8,7 +8,7 @@ import {
   clearSession,
 } from "../session/session.ts";
 import { recordConfirmedOrder, getContact, upsertContact } from "../session/contacts.ts";
-import { sendOrderToCRM } from "../crm-client.ts";
+import { sendOrderToCRM, confirmedOrderSchema } from "../crm-client.ts";
 import { getProduct, validateVariants } from "../catalog/catalog.ts";
 import type { CartItem, Session } from "../types.ts";
 import { randomUUID } from "crypto";
@@ -118,6 +118,18 @@ export async function handleConfirmOrder(telefono: string): Promise<ToolResult> 
     notas: session.notas,
     confirmed_at: new Date().toISOString(),
   };
+
+  const validation = confirmedOrderSchema.safeParse(confirmedOrder);
+  if (!validation.success) {
+    console.error(
+      `[CRM VALIDATION] Payload inválido para ${telefono}:`,
+      JSON.stringify(validation.error.format(), null, 2)
+    );
+    return {
+      ok: false,
+      error: "Hubo un problema interno al procesar el pedido. Por favor intentá de nuevo o contactanos directamente.",
+    };
+  }
 
   await sendOrderToCRM(confirmedOrder);
   await recordConfirmedOrder(telefono, session.items);
