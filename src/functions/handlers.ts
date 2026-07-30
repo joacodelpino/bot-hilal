@@ -7,9 +7,10 @@ import {
   getOrCreateSession,
   clearSession,
 } from "../session/session.ts";
-import { recordConfirmedOrder, getContact, upsertContact } from "../session/contacts.ts";
+import { getContact, upsertContact } from "../session/contacts.ts";
 import { sendOrderToCRM, confirmedOrderSchema } from "../crm-client.ts";
 import { getProduct, validateVariants } from "../catalog/catalog.ts";
+import { prisma } from "../db.ts";
 import type { CartItem, Session } from "../types.ts";
 import { randomUUID } from "crypto";
 
@@ -132,8 +133,34 @@ export async function handleConfirmOrder(telefono: string): Promise<ToolResult> 
   }
 
   await sendOrderToCRM(confirmedOrder);
-  await recordConfirmedOrder(telefono, session.items);
-  await updateSession(telefono, { estado: "confirmado", historial: [] });
+
+  // Transacción atómica: si algo falla aquí, el CRM ya recibió el pedido
+  // pero la sesión local queda en "armando_pedido" → el log permite reconciliar a mano.
+  try {
+    await prisma.$transaction(async (tx) => {
+      // recordConfirmedOrder: incrementa contador y guarda snapshot del último pedido
+      const existing = await tx.contactos.findUnique({ where: { telefono } });
+      const count = (existing?.cantidad_pedidos_confirmados ?? 0) + 1;
+      await tx.contactos.upsert({
+        where: { telefono },
+        create: { telefono, cantidad_pedidos_confirmados: 1, ultimo_pedido_items: session.items as any },
+        update: { cantidad_pedidos_confirmados: count, ultimo_pedido_items: session.items as any },
+      });
+
+      // updateSession: marca la sesión como confirmada y limpia el historial
+      await tx.pedidos_en_curso.update({
+        where: { telefono_cliente: telefono },
+        data: { estado: "confirmado", historial: [] },
+      });
+    });
+  } catch (err) {
+    console.error(
+      `[CONFIRM ORPHAN] CRM recibió el pedido de ${telefono} pero la transacción local falló. ` +
+      `Reconciliar manualmente.\nDatos del pedido: ${JSON.stringify(confirmedOrder)}`,
+      err
+    );
+    throw err;
+  }
 
   return {
     ok: true,
