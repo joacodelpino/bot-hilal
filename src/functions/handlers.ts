@@ -8,7 +8,7 @@ import {
   clearSession,
 } from "../session/session.ts";
 import { getContact, upsertContact } from "../session/contacts.ts";
-import { sendOrderToCRM, confirmedOrderSchema } from "../crm-client.ts";
+import { sendOrderToCRM, confirmedOrderSchema, type CRMOrderPayload } from "../crm-client.ts";
 import { getProduct, validateVariants } from "../catalog/catalog.ts";
 import { prisma } from "../db.ts";
 import type { CartItem, Session } from "../types.ts";
@@ -132,7 +132,16 @@ export async function handleConfirmOrder(telefono: string): Promise<ToolResult> 
     };
   }
 
-  await sendOrderToCRM(confirmedOrder);
+  // Enriquecer items con product_name del catálogo para que el CRM muestre nombres legibles
+  const crmPayload: CRMOrderPayload = {
+    ...confirmedOrder,
+    items: confirmedOrder.items.map((item) => ({
+      ...item,
+      product_name: getProduct(item.product_id)?.product_name ?? item.product_id,
+    })),
+  };
+
+  await sendOrderToCRM(crmPayload);
 
   // Transacción atómica: si algo falla aquí, el CRM ya recibió el pedido
   // pero la sesión local queda en "armando_pedido" → el log permite reconciliar a mano.

@@ -1,5 +1,21 @@
 import { z } from "zod";
-import type { ConfirmedOrder } from "./types.ts";
+
+// ─── Tipo del payload que el CRM espera ──────────────────────────────────────
+
+export interface CRMOrderPayload {
+  telefono_cliente: string;
+  nombre_apellido: string | null;
+  items: Array<{
+    product_id: string;
+    product_name: string;
+    variantes: Record<string, string>;
+    cantidad: number;
+  }>;
+  direccion: string | null;
+  horario: string | null;
+  notas: string | null;
+  confirmed_at: string;
+}
 
 const CRM_BASE_URL = process.env.CRM_BASE_URL!;
 const CRM_API_KEY = process.env.CRM_API_KEY!;
@@ -61,7 +77,7 @@ function isRetryable(err: unknown): boolean {
  * Único punto de contacto con HilalSistema-V2.
  * El bot NUNCA escribe directo en la BD del CRM.
  */
-export async function sendOrderToCRM(order: ConfirmedOrder): Promise<void> {
+export async function sendOrderToCRM(order: CRMOrderPayload): Promise<void> {
   const url = `${CRM_BASE_URL}/api/orders/incoming`;
   const opts: RequestInit = {
     method: "POST",
