@@ -1,8 +1,6 @@
-import { PrismaClient } from "@prisma/client";
 import { randomUUID } from "crypto";
 import type { CartItem, Session, OrderStatus } from "../types.ts";
-
-const prisma = new PrismaClient();
+import { prisma } from "../db.ts";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

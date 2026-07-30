@@ -1,7 +1,5 @@
-import { PrismaClient } from "@prisma/client";
 import type { Contact, CartItem } from "../types.ts";
-
-const prisma = new PrismaClient();
+import { prisma } from "../db.ts";
 
 function toContact(row: any): Contact {
   return {
