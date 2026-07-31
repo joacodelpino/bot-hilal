@@ -18,6 +18,23 @@ import { randomUUID } from "crypto";
 
 type ToolResult = { ok: true; session: Session; message: string } | { ok: false; error: string };
 
+// ─── Helpers de validación ────────────────────────────────────────────────────
+
+function stripAccentsLocal(text: string): string {
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+const SALUDOS = [
+  "hola", "buenas", "buenas noches", "buenas tardes",
+  "buenos dias", "buen dia", "che", "que tal", "como andas", "hey",
+  "buenas buenas",
+];
+
+function esSaludo(nombre: string): boolean {
+  const n = stripAccentsLocal(nombre).toLowerCase().trim();
+  return SALUDOS.some((s) => n === s || n.startsWith(s + " "));
+}
+
 // ─── Formateador de carrito ───────────────────────────────────────────────────
 
 export function formatCart(session: Session): string {
@@ -282,6 +299,10 @@ export async function handleUpdateClientName(
   telefono: string,
   args: { nombre: string; apellido?: string }
 ): Promise<ToolResult> {
+  if (esSaludo(args.nombre)) {
+    return { ok: false, error: "Eso parece un saludo. ¿Cómo te llamás?" };
+  }
+
   const session = await updateSession(telefono, {
     nombre: args.nombre,
     ...(args.apellido && { apellido: args.apellido }),

@@ -72,12 +72,9 @@ REGLAS CRÍTICAS — seguirlas siempre, sin excepción:
    asignar el product_id. Nunca elegir un calibre o variedad por default.
 
    PASO 2 — CONFIRMAR TAMAÑO: Si el producto elegido tiene requires_specification=true,
-   verificar que el cliente mencionó un valor de variant_options. Si no lo hizo,
-   preguntar SOLO ese dato. Nunca asumir un default. Nunca inventar una variante.
-   Palabras que describen envase pero NO son tamaño válido:
-   bidón, bidoncito, envase, frasco, frasquito, botella, botellita, lata, latita, pote,
-   potecito, tarro, tarrito, vasito — si el cliente usa una de estas palabras, pedirle
-   el tamaño exacto (ej: 200g, 500g, 1kg).
+   preguntar el tamaño antes de llamar add_item. Si el cliente menciona el envase pero
+   no el tamaño (frasco, bidón, botella, etc.), pedirle el tamaño exacto. El handler
+   rechazará el add_item si falta el tamaño — preferible preguntar antes.
 
    REGLA GENERAL: solo llamar add_item cuando el product_id sea inequívoco Y todas las
    variantes requeridas estén confirmadas por el cliente. Si falta cualquiera de los
@@ -110,11 +107,6 @@ REGLAS CRÍTICAS — seguirlas siempre, sin excepción:
 
 3. CARRITO: Después de CADA modificación (add, remove, update, replace), mostrar el pedido
    completo actualizado. Ya viene en el resultado de cada función.
-   IDENTIFICADORES INTERNOS: NUNCA mostrar line_id, UUIDs ni ningún identificador interno
-   al cliente. Al mostrar el pedido usar solo: número de línea (1, 2, 3...), nombre del
-   producto, variante y cantidad.
-   Correcto: "1. Aceite de oliva (vidrio) 1L × 3"
-   Incorrecto: "1. Aceite de oliva (vidrio) 1L × 3 (line_id: aee11630-...)"
 
 4. CANTIDADES: update_quantity recibe el valor FINAL, no un delta.
    "cambia los 3 por 9" → nueva_cantidad=9 (nunca 3+9=12).
@@ -143,9 +135,6 @@ REGLAS CRÍTICAS — seguirlas siempre, sin excepción:
 
 6. NOMBRE: Si el campo "Nombre" de arriba dice "aún no confirmado", pedirlo antes de continuar.
    Si ya hay un nombre en la sesión, NO volver a pedirlo — ni aunque sea el primer pedido.
-   El nombre capturado es SIEMPRE el de quien escribe (quien hace el pedido), nunca el de
-   un tercero. Si dice "es para mi vecina María", el nombre del pedido sigue siendo el de
-   quien está chateando, no "María".
    NOMBRE + OTRA ACCIÓN EN EL MISMO MENSAJE: Si el cliente incluye su nombre junto con otra
    instrucción ("Confirmá el pedido, soy Laura" / "Agregá aceite, me llamo Pedro"), procesar
    PRIMERO el nombre llamando update_client_name y DESPUÉS ejecutar la otra instrucción.
@@ -300,6 +289,24 @@ function stripMarkdown(text: string): string {
     .replace(/`([^`]+)`/g, "$1");       // `code` → code
 }
 
+/** Elimina cualquier "(line_id: <uuid>)" que haya filtrado al texto final. */
+function cleanLineIds(text: string): string {
+  return text.replace(/\s*\(line_id:\s*[a-f0-9-]{36}\)/gi, "");
+}
+
+/**
+ * Si la respuesta contiene un carrito (líneas "N. ... × M") y no termina con
+ * una pregunta, appendea el mensaje de cierre estándar.
+ */
+function appendCartClosing(text: string): string {
+  const CART_LINE = /^\d+\.\s+.+×\s*\d+/m;
+  const CLOSING = "\n\n¿Querés agregar o cambiar algo más, o confirmamos?";
+  if (!CART_LINE.test(text)) return text;
+  const tail = text.slice(-80);
+  if (tail.includes("?")) return text;
+  return text + CLOSING;
+}
+
 /** Recorta historial a MAX_HISTORY y asegura que empiece con un mensaje de usuario */
 function trimHistorial(msgs: any[]): any[] {
   let trimmed = msgs.slice(-MAX_HISTORY);
@@ -381,5 +388,5 @@ export async function processMessage(
   const updatedHistorial = trimHistorial([...baseHistorial, ...newTurnMessages]);
   await updateSession(telefono, { historial: updatedHistorial });
 
-  return stripMarkdown(finalText);
+  return stripMarkdown(appendCartClosing(cleanLineIds(finalText)));
 }
