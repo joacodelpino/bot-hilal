@@ -224,4 +224,13 @@ Bun.serve({
   },
 });
 
+// ── Handlers de errores no capturados — evitan que un error mate el proceso ──
+process.on("uncaughtException", (err) => {
+  console.error("[uncaughtException] Error no capturado — el proceso sigue:", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[unhandledRejection] Promesa rechazada sin handler:", reason);
+});
+
 console.log(`Bot Hilal escuchando en puerto ${PORT}`);
