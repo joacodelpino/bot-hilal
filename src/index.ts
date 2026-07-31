@@ -109,9 +109,6 @@ Bun.serve({
 
         // Meta espera 200 inmediato — procesamos en background, serializado por teléfono
         const messages = parseIncomingMessages(body);
-        if (messages.length > 0) {
-          console.debug(`[webhook] Meta: ${messages.length} mensaje(s) recibido(s) — tipos: ${messages.map(m => m.type).join(", ")}`);
-        }
 
         for (const msg of messages) {
           enqueue(msg.from, async () => {
@@ -128,10 +125,7 @@ Bun.serve({
                 console.error("[chatwoot] Error espejando mensaje (continuando):", err);
               }
 
-              if (bot_paused) {
-                console.debug(`[webhook] bot_paused=true para ${maskPhone(msg.from)} — agente asignado en Chatwoot`);
-                return;
-              }
+              if (bot_paused) return;
 
               // Rate limiting — mirror ya ocurrió, Chatwoot ve el mensaje
               const rl = checkRateLimit(msg.from);
@@ -151,10 +145,7 @@ Bun.serve({
               // y sin actividad > Xh, auto-resolver"). Ver: Chatwoot → Settings → Automation.
               try {
                 const session = await getSession(msg.from);
-                if (session?.estado === "escalado") {
-                  console.debug(`[webhook] sesión en estado "escalado" para ${maskPhone(msg.from)} — bot no responde`);
-                  return;
-                }
+                if (session?.estado === "escalado") return;
               } catch {
                 // Si falla el chequeo de sesión, continuar con flujo normal
               }
