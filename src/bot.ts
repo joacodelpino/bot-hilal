@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { openai, MODEL } from "./openai.ts";
 import { tools } from "./functions/tools.ts";
 import {
   handleAddItem,
@@ -19,12 +19,6 @@ import { getOrCreateSession, getSession, updateSession } from "./session/session
 import { getContact } from "./session/contacts.ts";
 import { getAllProducts, getCategories } from "./catalog/catalog.ts";
 import type { Session } from "./types.ts";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  ...(process.env.OPENAI_BASE_URL ? { baseURL: process.env.OPENAI_BASE_URL } : {}),
-});
-const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o";
 
 // ─── System prompt ────────────────────────────────────────────────────────────
 

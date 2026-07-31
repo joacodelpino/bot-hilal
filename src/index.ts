@@ -1,6 +1,7 @@
 import { handleVerification, parseIncomingMessages } from "./whatsapp/webhook.ts";
 import { mirrorAndCheckStatus, mirrorBotReply, isConversationPaused, handleChatwootOutbound, detectConversationResolved } from "./chatwoot/chatwoot.ts";
 import { sendTextMessage } from "./whatsapp/sender.ts";
+import { transcribeAudio } from "./whatsapp/transcription.ts";
 import { processMessage } from "./bot.ts";
 import { getSession, updateSession } from "./session/session.ts";
 
@@ -68,17 +69,33 @@ Bun.serve({
                 // Si falla el chequeo de sesión, continuar con flujo normal
               }
 
-              // Multimedia no soportada — responder y continuar
-              if (msg.type !== "text" || !msg.text) {
-                const mediaReply =
-                  msg.type === "audio"
-                    ? "Todavía no puedo escuchar audios. ¿Podés escribirme en texto lo que necesitás?"
-                    : "No puedo procesar ese tipo de mensaje (imágenes, ubicaciones, etc.). ¿Podés describirlo en texto?";
-                await sendTextMessage(msg.from, mediaReply);
+              // Resolver el texto a procesar según el tipo de mensaje
+              let textoParaProcesar: string | null = null;
+
+              if (msg.type === "text" && msg.text) {
+                textoParaProcesar = msg.text;
+              } else if (msg.type === "audio" && msg.mediaId) {
+                const tr = await transcribeAudio(msg.mediaId, msg.from);
+                if (!tr.ok) {
+                  const audioError =
+                    tr.reason === "too_long"
+                      ? "El audio es muy largo, ¿podés resumirlo en un mensaje más corto o escribirlo?"
+                      : tr.reason === "empty"
+                      ? "No pude entender el audio, ¿podés repetirlo o escribirlo?"
+                      : "No pude escuchar tu mensaje de voz, ¿podés escribirlo o intentar de nuevo?";
+                  await sendTextMessage(msg.from, audioError);
+                  return;
+                }
+                textoParaProcesar = tr.text;
+              } else {
+                await sendTextMessage(
+                  msg.from,
+                  "No puedo procesar ese tipo de mensaje (imágenes, ubicaciones, etc.). ¿Podés describirlo en texto?"
+                );
                 return;
               }
 
-              const reply = await processMessage(msg.from, msg.text);
+              const reply = await processMessage(msg.from, textoParaProcesar);
               if (reply) {
                 // Revalidar bot_paused antes de enviar: un agente pudo
                 // asignarse la conversación mientras OpenAI procesaba
