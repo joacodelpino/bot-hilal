@@ -1,4 +1,5 @@
 import { openai, MODEL } from "./openai.ts";
+import { maskPhone } from "./utils/mask.ts";
 import { tools } from "./functions/tools.ts";
 import {
   handleAddItem,
@@ -267,7 +268,7 @@ function logIfSuspicious(texto: string, telefono: string): void {
   const matched = INJECTION_PATTERNS.find((p) => p.test(normalized));
   if (matched) {
     console.warn(
-      `[injection] Posible intento de prompt injection — telefono: ${telefono} — patron: ${matched} — texto: "${texto.slice(0, 120)}"`
+      `[injection] Posible intento de prompt injection — telefono: ${maskPhone(telefono)} — patron: ${matched} — texto: "${texto.slice(0, 120)}"`
     );
   }
 }

@@ -12,6 +12,7 @@ import { sendOrderToCRM, confirmedOrderSchema, type CRMOrderPayload } from "../c
 import { getProduct, validateVariants, getCategories, getProductsByCategory } from "../catalog/catalog.ts";
 import { escalateConversation } from "../chatwoot/chatwoot.ts";
 import { prisma } from "../db.ts";
+import { maskPhone } from "../utils/mask.ts";
 import type { CartItem, Session } from "../types.ts";
 import { randomUUID } from "crypto";
 
@@ -124,7 +125,7 @@ export async function handleConfirmOrder(telefono: string): Promise<ToolResult> 
   const validation = confirmedOrderSchema.safeParse(confirmedOrder);
   if (!validation.success) {
     console.error(
-      `[CRM VALIDATION] Payload inválido para ${telefono}:`,
+      `[CRM VALIDATION] Payload inválido para ${maskPhone(telefono)}:`,
       JSON.stringify(validation.error.format(), null, 2)
     );
     return {
@@ -165,7 +166,7 @@ export async function handleConfirmOrder(telefono: string): Promise<ToolResult> 
     });
   } catch (err) {
     console.error(
-      `[CONFIRM ORPHAN] CRM recibió el pedido de ${telefono} pero la transacción local falló. ` +
+      `[CONFIRM ORPHAN] CRM recibió el pedido de ${maskPhone(telefono)} pero la transacción local falló. ` +
       `Reconciliar manualmente.\nDatos del pedido: ${JSON.stringify(confirmedOrder)}`,
       err
     );

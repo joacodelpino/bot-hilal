@@ -5,6 +5,7 @@ import { transcribeAudio } from "./whatsapp/transcription.ts";
 import { processMessage } from "./bot.ts";
 import { getSession, updateSession } from "./session/session.ts";
 import { checkRateLimit } from "./middleware/rateLimit.ts";
+import { maskPhone } from "./utils/mask.ts";
 
 if (!process.env.META_APP_SECRET) {
   console.error(
@@ -187,7 +188,7 @@ Bun.serve({
       const { shouldForward, phone, content } = handleChatwootOutbound(payload);
 
       if (shouldForward && phone && content) {
-        console.log(`[chatwoot-outbound] Reenviando mensaje de agente a ${phone}`);
+        console.log(`[chatwoot-outbound] Reenviando mensaje de agente a ${maskPhone(phone)}`);
         // No encolamos — el agente humano tiene prioridad, no depende del bot
         try {
           await sendTextMessage(phone, content);
@@ -204,7 +205,7 @@ Bun.serve({
           if (session?.estado === "escalado") {
             const nuevoEstado = session.items.length > 0 ? "armando_pedido" : "iniciado";
             await updateSession(resolvedPhone, { estado: nuevoEstado });
-            console.log(`[chatwoot] Conversación resuelta — bot retoma para ${resolvedPhone} (estado: ${nuevoEstado})`);
+            console.log(`[chatwoot] Conversación resuelta — bot retoma para ${maskPhone(resolvedPhone)} (estado: ${nuevoEstado})`);
           }
         } catch (err) {
           console.error("[chatwoot] Error al procesar conversation resolved:", err);

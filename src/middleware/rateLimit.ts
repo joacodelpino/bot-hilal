@@ -4,6 +4,8 @@
  * - Global: solo loggea warning (alerta de ataque, no corte de servicio).
  */
 
+import { maskPhone } from "../utils/mask.ts";
+
 const LIMIT_PER_PHONE = parseInt(process.env.RATE_LIMIT_PER_PHONE ?? "20");
 const LIMIT_GLOBAL = parseInt(process.env.RATE_LIMIT_GLOBAL ?? "200");
 const WINDOW_MS = 60 * 1000; // 1 minuto
@@ -28,7 +30,7 @@ export function checkRateLimit(telefono: string): RateLimitResult {
 
   if (phoneTs.length > LIMIT_PER_PHONE) {
     console.warn(
-      `[rate-limit] Teléfono bloqueado: ${telefono} — ${phoneTs.length} msgs/min (límite ${LIMIT_PER_PHONE})`
+      `[rate-limit] Teléfono bloqueado: ${maskPhone(telefono)} — ${phoneTs.length} msgs/min (límite ${LIMIT_PER_PHONE})`
     );
     return { blocked: true, reason: "phone" };
   }

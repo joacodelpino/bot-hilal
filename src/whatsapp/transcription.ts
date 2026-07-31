@@ -1,5 +1,6 @@
 import { openai } from "../openai.ts";
 import { downloadMediaFromMeta } from "./sender.ts";
+import { maskPhone } from "../utils/mask.ts";
 
 const TRANSCRIPTION_MODEL =
   process.env.OPENAI_TRANSCRIPTION_MODEL ?? "gpt-4o-mini-transcribe";
@@ -52,7 +53,7 @@ export async function transcribeAudio(
     ({ buffer, contentType } = await download(mediaId));
   } catch (err) {
     console.error(
-      `[transcription] Error descargando audio ${mediaId} para ${telefono}:`,
+      `[transcription] Error descargando audio ${mediaId} para ${maskPhone(telefono)}:`,
       err
     );
     return { ok: false, reason: "download_failed" };
@@ -61,7 +62,7 @@ export async function transcribeAudio(
   // 2. Verificar tamaño (> 25 MB es inusual en WhatsApp pero posible)
   if (buffer.length > MAX_AUDIO_BYTES) {
     console.warn(
-      `[transcription] Audio demasiado grande (${buffer.length} bytes) para ${telefono}`
+      `[transcription] Audio demasiado grande (${buffer.length} bytes) para ${maskPhone(telefono)}`
     );
     return { ok: false, reason: "too_long" };
   }
@@ -85,7 +86,7 @@ export async function transcribeAudio(
     text = (await transcribe(file)).trim();
   } catch (err) {
     console.error(
-      `[transcription] Error transcribiendo audio para ${telefono}:`,
+      `[transcription] Error transcribiendo audio para ${maskPhone(telefono)}:`,
       err
     );
     return { ok: false, reason: "transcription_failed" };
@@ -93,7 +94,7 @@ export async function transcribeAudio(
 
   // 5. Verificar que la transcripción no esté vacía
   if (!text) {
-    console.warn(`[transcription] Transcripción vacía para ${telefono}`);
+    console.warn(`[transcription] Transcripción vacía para ${maskPhone(telefono)}`);
     return { ok: false, reason: "empty" };
   }
 

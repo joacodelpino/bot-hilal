@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { maskPhone } from "./utils/mask.ts";
 
 // ─── Tipo del payload que el CRM espera ──────────────────────────────────────
 
@@ -99,7 +100,7 @@ export async function sendOrderToCRM(order: CRMOrderPayload): Promise<void> {
         console.error(
           `[CRM AUTH ERROR] El CRM rechazó la request con 401 Unauthorized. ` +
           `Verificar que CRM_API_KEY coincida con ORDERS_WEBHOOK_API_KEY en el CRM. ` +
-          `Pedido del teléfono ${order.telefono_cliente} NO fue registrado en el CRM.`
+          `Pedido del teléfono ${maskPhone(order.telefono_cliente)} NO fue registrado en el CRM.`
         );
         throw new Error(`CRM autenticación fallida (401): la API key del bot no coincide con la del CRM`);
       }
@@ -108,7 +109,7 @@ export async function sendOrderToCRM(order: CRMOrderPayload): Promise<void> {
       if (res.status === 400 || res.status === 422) {
         const body = await res.text();
         console.error(
-          `[CRM] Error de validación (${res.status}) para ${order.telefono_cliente} — respuesta: ${body}`
+          `[CRM] Error de validación (${res.status}) para ${maskPhone(order.telefono_cliente)} — respuesta: ${body}`
         );
         throw new Error(`CRM rechazó el payload con ${res.status}: ${body}`);
       }
@@ -117,7 +118,7 @@ export async function sendOrderToCRM(order: CRMOrderPayload): Promise<void> {
       if (res.status >= 500) {
         const body = await res.text();
         console.error(
-          `[CRM] intento ${attempt}/${1 + MAX_RETRIES} — 5xx (${res.status}) para ${order.telefono_cliente}: ${body}`
+          `[CRM] intento ${attempt}/${1 + MAX_RETRIES} — 5xx (${res.status}) para ${maskPhone(order.telefono_cliente)}: ${body}`
         );
         lastError = new Error(`CRM 5xx (${res.status}): ${body}`);
         // continúa al bloque de reintento
@@ -131,7 +132,7 @@ export async function sendOrderToCRM(order: CRMOrderPayload): Promise<void> {
     } catch (err) {
       if (err instanceof CRMTimeoutError) {
         console.error(
-          `[CRM] intento ${attempt}/${1 + MAX_RETRIES} — TIMEOUT para ${order.telefono_cliente}`
+          `[CRM] intento ${attempt}/${1 + MAX_RETRIES} — TIMEOUT para ${maskPhone(order.telefono_cliente)}`
         );
         lastError = err;
       } else if (!isRetryable(err)) {
