@@ -128,7 +128,10 @@ Bun.serve({
                 console.error("[chatwoot] Error espejando mensaje (continuando):", err);
               }
 
-              if (bot_paused) return;
+              if (bot_paused) {
+                console.debug(`[webhook] bot_paused=true para ${maskPhone(msg.from)} — agente asignado en Chatwoot`);
+                return;
+              }
 
               // Rate limiting — mirror ya ocurrió, Chatwoot ve el mensaje
               const rl = checkRateLimit(msg.from);
@@ -148,7 +151,10 @@ Bun.serve({
               // y sin actividad > Xh, auto-resolver"). Ver: Chatwoot → Settings → Automation.
               try {
                 const session = await getSession(msg.from);
-                if (session?.estado === "escalado") return;
+                if (session?.estado === "escalado") {
+                  console.debug(`[webhook] sesión en estado "escalado" para ${maskPhone(msg.from)} — bot no responde`);
+                  return;
+                }
               } catch {
                 // Si falla el chequeo de sesión, continuar con flujo normal
               }
