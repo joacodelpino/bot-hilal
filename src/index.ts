@@ -1,7 +1,8 @@
 import { handleVerification, parseIncomingMessages } from "./whatsapp/webhook.ts";
-import { mirrorAndCheckStatus, mirrorBotReply, isConversationPaused, handleChatwootOutbound } from "./chatwoot/chatwoot.ts";
+import { mirrorAndCheckStatus, mirrorBotReply, isConversationPaused, handleChatwootOutbound, detectConversationResolved } from "./chatwoot/chatwoot.ts";
 import { sendTextMessage } from "./whatsapp/sender.ts";
 import { processMessage } from "./bot.ts";
+import { getSession, updateSession } from "./session/session.ts";
 
 const PORT = parseInt(process.env.BOT_PORT ?? "3001");
 
@@ -53,6 +54,19 @@ Bun.serve({
               }
 
               if (bot_paused) return;
+
+              // Chequeo local: si la sesión está escalada, el bot no responde.
+              // El espejado ya ocurrió arriba, así que el agente humano ve el mensaje.
+              // TODO: implementar auto-resolve como red de seguridad para conversaciones
+              // que queden en estado "escalado" sin que el empleado marque Resolved.
+              // Opción recomendada: Automation Rules de Chatwoot ("si etiqueta=escalado
+              // y sin actividad > Xh, auto-resolver"). Ver: Chatwoot → Settings → Automation.
+              try {
+                const session = await getSession(msg.from);
+                if (session?.estado === "escalado") return;
+              } catch {
+                // Si falla el chequeo de sesión, continuar con flujo normal
+              }
 
               // Multimedia no soportada — responder y continuar
               if (msg.type !== "text" || !msg.text) {
@@ -110,6 +124,21 @@ Bun.serve({
           await sendTextMessage(phone, content);
         } catch (err) {
           console.error("[chatwoot-outbound] Error enviando a WhatsApp:", err);
+        }
+      }
+
+      // Detectar conversación resuelta → el bot retoma el control
+      const resolvedPhone = detectConversationResolved(payload);
+      if (resolvedPhone) {
+        try {
+          const session = await getSession(resolvedPhone);
+          if (session?.estado === "escalado") {
+            const nuevoEstado = session.items.length > 0 ? "armando_pedido" : "iniciado";
+            await updateSession(resolvedPhone, { estado: nuevoEstado });
+            console.log(`[chatwoot] Conversación resuelta — bot retoma para ${resolvedPhone} (estado: ${nuevoEstado})`);
+          }
+        } catch (err) {
+          console.error("[chatwoot] Error al procesar conversation resolved:", err);
         }
       }
 

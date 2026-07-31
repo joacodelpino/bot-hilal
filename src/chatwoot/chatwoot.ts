@@ -157,6 +157,45 @@ async function updateContactAttributes(
   });
 }
 
+// ─── Escalación ──────────────────────────────────────────────────────────────
+
+/**
+ * Marca la conversación como escalada en Chatwoot:
+ * - Agrega etiqueta "escalado" (visible en la UI sin config extra)
+ * - Agrega nota privada con el motivo para el agente que tome la conversación
+ */
+export async function escalateConversation(telefono: string, motivo: string): Promise<void> {
+  const contact = await getContact(telefono);
+  const contactId = await findOrCreateContact(telefono, contact?.nombre_apellido);
+  const convId = await findOrCreateConversation(contactId);
+
+  await chatwootFetch(`/conversations/${convId}/labels`, {
+    method: "POST",
+    body: JSON.stringify({ labels: ["escalado"] }),
+  });
+
+  await chatwootFetch(`/conversations/${convId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({
+      content: `[BOT - Escalación] ${motivo}`,
+      message_type: "outgoing",
+      private: true,
+    }),
+  });
+}
+
+/**
+ * Detecta si un webhook de Chatwoot corresponde a una conversación resuelta.
+ * Retorna el teléfono normalizado del cliente si es así, null en caso contrario.
+ */
+export function detectConversationResolved(payload: any): string | null {
+  if (payload.event !== "conversation_status_changed") return null;
+  if (payload.conversation?.status !== "resolved") return null;
+  const phone = payload.conversation?.meta?.sender?.phone_number;
+  if (!phone) return null;
+  return String(phone).replace(/^\+/, "");
+}
+
 // ─── Webhook outbound: Chatwoot → WhatsApp ──────────────────────────────────
 
 /**

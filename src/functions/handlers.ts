@@ -10,6 +10,7 @@ import {
 import { getContact, upsertContact } from "../session/contacts.ts";
 import { sendOrderToCRM, confirmedOrderSchema, type CRMOrderPayload } from "../crm-client.ts";
 import { getProduct, validateVariants } from "../catalog/catalog.ts";
+import { escalateConversation } from "../chatwoot/chatwoot.ts";
 import { prisma } from "../db.ts";
 import type { CartItem, Session } from "../types.ts";
 import { randomUUID } from "crypto";
@@ -175,6 +176,22 @@ export async function handleConfirmOrder(telefono: string): Promise<ToolResult> 
     ok: true,
     session: { ...session, estado: "confirmado" },
     message: "Pedido confirmado y enviado. ¡Gracias! Nos ponemos en contacto a la brevedad.",
+  };
+}
+
+export async function handleEscalateToHuman(
+  telefono: string,
+  args: { motivo: string }
+): Promise<ToolResult> {
+  // Marcar conversación en Chatwoot (etiqueta + nota privada) antes de actualizar sesión
+  // para que el agente reciba el contexto incluso si el paso local falla después
+  await escalateConversation(telefono, args.motivo);
+
+  const session = await updateSession(telefono, { estado: "escalado" });
+  return {
+    ok: true,
+    session,
+    message: "Te comunico con una persona del equipo. En un momento te atienden.",
   };
 }
 

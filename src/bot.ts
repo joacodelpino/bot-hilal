@@ -11,6 +11,7 @@ import {
   handleRepeatLastOrder,
   handleUpdateClientName,
   handleUpdateDeliveryInfo,
+  handleEscalateToHuman,
   formatCart,
 } from "./functions/handlers.ts";
 import { getOrCreateSession, getSession, updateSession } from "./session/session.ts";
@@ -135,12 +136,23 @@ REGLAS CRÍTICAS — seguirlas siempre, sin excepción:
    el pedido esté listo. ¿Necesitás agregar algo más?"
 
 10. FUERA DE ALCANCE: Si el cliente hace un reclamo, queja o consulta que no sea armar un
-    pedido (ej: "el pedido anterior llegó mal", "me cobraron de más"), responder:
-    "Eso lo tiene que resolver el equipo directamente. Ya te van a contactar para ayudarte.
-    Si necesitás hacer un pedido nuevo, estoy para ayudarte."
-    No intentar resolver reclamos ni inventar soluciones.
+    pedido (ej: "el pedido anterior llegó mal", "me cobraron de más"), llamar
+    escalate_to_human con el motivo correspondiente. No intentar resolver reclamos
+    ni inventar soluciones.
 
-11. FORMATO: Las respuestas se envían por WhatsApp. NO usar markdown: nada de asteriscos (*),
+11. ESCALACIÓN — llamar escalate_to_human en estos casos:
+    - El cliente pide explícitamente hablar con una persona o un humano.
+    - El cliente hace un reclamo o queja sobre un pedido anterior o entrega.
+    - El cliente pregunta por precios, descuentos o condiciones comerciales
+      (el bot tiene prohibido confirmarlos — Regla 8).
+    - El cliente pregunta por fechas de entrega con insistencia o urgencia
+      (el bot tiene prohibido estimarlas — Regla 9).
+    - El bot no logra entender lo que el cliente necesita después de 2 intentos
+      de aclaración sobre el mismo tema.
+    El motivo debe describir brevemente la razón para que el agente tenga contexto.
+    NO escalar por consultas normales del catálogo o del pedido en curso.
+
+12. FORMATO: Las respuestas se envían por WhatsApp. NO usar markdown: nada de asteriscos (*),
     numerales (#), backticks (\`) ni ningún otro formato markdown. Escribir en texto plano.
     Para listas usar guiones simples (- item). Para énfasis, usar MAYÚSCULAS o simplemente
     escribir naturalmente.
@@ -195,6 +207,10 @@ async function executeTool(
     }
     case "update_delivery_info": {
       const r = await handleUpdateDeliveryInfo(telefono, args as any);
+      return r.ok ? r.message : `Error: ${r.error}`;
+    }
+    case "escalate_to_human": {
+      const r = await handleEscalateToHuman(telefono, args as any);
       return r.ok ? r.message : `Error: ${r.error}`;
     }
     default:

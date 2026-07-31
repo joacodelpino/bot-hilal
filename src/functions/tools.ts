@@ -185,6 +185,26 @@ export const tools: OpenAI.Chat.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
+      name: "escalate_to_human",
+      description:
+        "Derivar la conversación a un agente humano del equipo. Llamar cuando el cliente pide hablar con una persona, hace un reclamo sobre un pedido, o el bot no puede resolver la consulta tras 2 intentos.",
+      parameters: {
+        type: "object",
+        properties: {
+          motivo: {
+            type: "string",
+            description:
+              "Razón de la escalación. Se guarda como nota interna en Chatwoot para el agente. Ej: 'Cliente solicita hablar con una persona', 'Reclamo sobre pedido anterior', 'Consulta sobre precio que excede las capacidades del bot'.",
+          },
+        },
+        required: ["motivo"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "update_delivery_info",
       description:
         "Registrar datos de entrega: dirección, horario preferido y notas. Usar solo para metadata de entrega, nunca para completar variantes de un producto.",
