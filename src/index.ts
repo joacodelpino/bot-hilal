@@ -67,11 +67,36 @@ Bun.serve({
         const signature = req.headers.get("x-hub-signature-256");
 
         if (!verifyMetaSignature(rawBody, signature)) {
+          // Chatwoot usa la misma URL del inbox para sus propias notificaciones
+          // internas (message_created, conversation_status_changed, etc.) — esos
+          // requests no llevan firma de Meta. Los detectamos por el campo "account"
+          // y los procesamos como webhooks de Chatwoot outbound.
+          let parsedPayload: unknown;
+          try { parsedPayload = JSON.parse(new TextDecoder().decode(rawBody)); } catch { /* ignorar */ }
+          const isChatwoot = (parsedPayload as any)?.account?.id !== undefined;
+          if (isChatwoot) {
+            console.debug("[webhook] Payload de Chatwoot recibido en /webhook — procesando como outbound");
+            const { shouldForward, phone, content } = handleChatwootOutbound(parsedPayload);
+            if (shouldForward && phone && content) {
+              try { await sendTextMessage(phone, content); } catch (err) {
+                console.error("[webhook/chatwoot] Error reenviando a WhatsApp:", err);
+              }
+            }
+            const resolvedPhone = detectConversationResolved(parsedPayload);
+            if (resolvedPhone) {
+              try {
+                const session = await getSession(resolvedPhone);
+                if (session?.estado === "escalado") {
+                  const nuevoEstado = session.items.length > 0 ? "armando_pedido" : "iniciado";
+                  await updateSession(resolvedPhone, { estado: nuevoEstado });
+                }
+              } catch { /* ignorar */ }
+            }
+            return new Response("OK", { status: 200 });
+          }
+
           const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("cf-connecting-ip") ?? "unknown";
-          const bodyPreview = new TextDecoder().decode(rawBody.slice(0, 200)).replace(/\n/g, " ");
-          console.warn(
-            `[webhook] Firma inválida o ausente — path: ${url.pathname} — IP: ${ip} — body[0..200]: ${bodyPreview}`
-          );
+          console.warn(`[webhook] Firma inválida o ausente — IP: ${ip}`);
           return new Response("Unauthorized", { status: 401 });
         }
 
