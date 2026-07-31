@@ -182,6 +182,22 @@ export async function escalateConversation(telefono: string, motivo: string): Pr
       private: true,
     }),
   });
+
+  // Asignar al equipo si está configurado — fallo no-fatal
+  const teamId = process.env.CHATWOOT_TEAM_ID;
+  if (teamId) {
+    try {
+      await chatwootFetch(`/conversations/${convId}/assignments`, {
+        method: "POST",
+        body: JSON.stringify({ team_id: Number(teamId) }),
+      });
+    } catch (err) {
+      console.error(
+        `[chatwoot] Error asignando conversación ${convId} al equipo ${teamId} (etiqueta y nota ya creadas):`,
+        err
+      );
+    }
+  }
 }
 
 /**
