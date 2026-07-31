@@ -75,13 +75,9 @@ Bun.serve({
           try { parsedPayload = JSON.parse(new TextDecoder().decode(rawBody)); } catch { /* ignorar */ }
           const isChatwoot = (parsedPayload as any)?.account?.id !== undefined;
           if (isChatwoot) {
-            console.debug("[webhook] Payload de Chatwoot recibido en /webhook — procesando como outbound");
-            const { shouldForward, phone, content } = handleChatwootOutbound(parsedPayload);
-            if (shouldForward && phone && content) {
-              try { await sendTextMessage(phone, content); } catch (err) {
-                console.error("[webhook/chatwoot] Error reenviando a WhatsApp:", err);
-              }
-            }
+            // message_created ya lo maneja /webhooks/chatwoot-outbound — no procesar acá
+            // para evitar doble reenvío (botMessageIds se consume en el primer handler).
+            // Solo procesar conversation_status_changed (resolve → bot retoma control).
             const resolvedPhone = detectConversationResolved(parsedPayload);
             if (resolvedPhone) {
               try {
@@ -89,6 +85,7 @@ Bun.serve({
                 if (session?.estado === "escalado") {
                   const nuevoEstado = session.items.length > 0 ? "armando_pedido" : "iniciado";
                   await updateSession(resolvedPhone, { estado: nuevoEstado });
+                  console.log(`[chatwoot] Conversación resuelta (inbox) — bot retoma para ${maskPhone(resolvedPhone)}`);
                 }
               } catch { /* ignorar */ }
             }
