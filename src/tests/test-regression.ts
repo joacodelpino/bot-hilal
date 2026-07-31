@@ -393,11 +393,141 @@ async function caso5() {
   }
 }
 
+async function caso6() {
+  console.log('CASO 6 (show_catalog sin categoría): "¿qué tienen?" → debe llamar show_catalog sin category');
+  const result = await singleTurn(sessionVacia, "¿qué tienen?");
+
+  if (result.type === "tool_calls") {
+    const call = result.calls.find((c) => c.name === "show_catalog");
+    if (call) {
+      const hasCategory = call.args.category !== undefined && call.args.category !== null && call.args.category !== "";
+      if (hasCategory) {
+        fail(
+          "llamó show_catalog sin category",
+          `Llamó show_catalog con category="${call.args.category}" en vez de sin parámetro`
+        );
+      } else {
+        pass("llamó show_catalog sin category", `Args: ${JSON.stringify(call.args)}`);
+      }
+    } else {
+      fail(
+        "llamó show_catalog",
+        `Llamó otras funciones: ${result.calls.map((c) => c.name).join(", ")}`
+      );
+    }
+  } else {
+    // Responder en texto también puede ser aceptable si menciona categorías,
+    // pero preferimos que use la tool
+    const t = result.content.toLowerCase();
+    const mencionaCategorias =
+      t.includes("aceitun") || t.includes("aceite") || t.includes("categoría") || t.includes("categoria");
+    if (mencionaCategorias) {
+      pass(
+        "respondió con categorías (sin tool — aceptable)",
+        `Respuesta: "${result.content.slice(0, 120)}"`
+      );
+    } else {
+      fail(
+        "llamó show_catalog o mencionó categorías",
+        `Devolvió texto sin mencionar categorías: "${result.content.slice(0, 120)}"`
+      );
+    }
+  }
+}
+
+async function caso7() {
+  console.log('CASO 7 (show_catalog con categoría): "¿qué aceitunas rellenas tienen?" → debe llamar show_catalog con esa categoría');
+  const result = await singleTurn(sessionVacia, "¿qué aceitunas rellenas tienen?");
+
+  if (result.type === "tool_calls") {
+    const call = result.calls.find((c) => c.name === "show_catalog");
+    if (call) {
+      const cat = String(call.args.category ?? "").toLowerCase();
+      if (cat.includes("rellen")) {
+        pass("llamó show_catalog con categoría correcta", `Args: ${JSON.stringify(call.args)}`);
+      } else {
+        fail(
+          "llamó show_catalog con categoría correcta",
+          `Llamó show_catalog pero con category="${call.args.category}"`
+        );
+      }
+    } else {
+      fail(
+        "llamó show_catalog",
+        `Llamó otras funciones: ${result.calls.map((c) => c.name).join(", ")}`
+      );
+    }
+  } else {
+    // Responder con la lista en texto también puede ser válido
+    const t = result.content.toLowerCase();
+    if (t.includes("rellen")) {
+      pass(
+        "respondió con productos rellenas (sin tool — aceptable)",
+        `Respuesta: "${result.content.slice(0, 150)}"`
+      );
+    } else {
+      fail(
+        "llamó show_catalog o listó aceitunas rellenas",
+        `Respuesta no menciona rellenas: "${result.content.slice(0, 120)}"`
+      );
+    }
+  }
+}
+
+async function caso8() {
+  console.log('CASO 8 (escalate_to_human): "quiero hablar con una persona" → debe llamar escalate_to_human');
+  const result = await singleTurn(sessionVacia, "quiero hablar con una persona del equipo");
+
+  if (result.type === "tool_calls") {
+    const call = result.calls.find((c) => c.name === "escalate_to_human");
+    if (call) {
+      const motivo = String(call.args.motivo ?? "");
+      if (motivo.length > 0) {
+        pass("llamó escalate_to_human con motivo", `Motivo: "${motivo}"`);
+      } else {
+        fail("llamó escalate_to_human con motivo", `Llamó escalate_to_human pero sin motivo`);
+      }
+    } else {
+      fail(
+        "llamó escalate_to_human",
+        `Llamó otras funciones: ${result.calls.map((c) => c.name).join(", ")}`
+      );
+    }
+  } else {
+    fail(
+      "llamó escalate_to_human",
+      `Devolvió texto en lugar de llamar la tool: "${result.content.slice(0, 120)}"`
+    );
+  }
+}
+
+async function caso9() {
+  console.log('CASO 9 (escalate reclamo): "el pedido anterior llegó mal" → debe escalar, no inventar solución');
+  const result = await singleTurn(sessionVacia, "el pedido que me mandaron la semana pasada llegó mal, faltaban productos");
+
+  if (result.type === "tool_calls") {
+    const call = result.calls.find((c) => c.name === "escalate_to_human");
+    if (call) {
+      pass("escaló el reclamo correctamente", `Motivo: "${call.args.motivo}"`);
+    } else {
+      fail(
+        "escaló el reclamo",
+        `Llamó otras funciones en lugar de escalar: ${result.calls.map((c) => c.name).join(", ")}`
+      );
+    }
+  } else {
+    fail(
+      "escaló el reclamo",
+      `Respondió en texto sin escalar: "${result.content.slice(0, 150)}"`
+    );
+  }
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 console.log(`\n=== Tests de regresión — modelo: ${MODEL} ===\n`);
 
-for (const [i, fn] of [caso1, caso2, caso3, caso4, caso5].entries()) {
+for (const [i, fn] of [caso1, caso2, caso3, caso4, caso5, caso6, caso7, caso8, caso9].entries()) {
   try {
     await fn();
   } catch (err) {
