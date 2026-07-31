@@ -109,6 +109,9 @@ Bun.serve({
 
         // Meta espera 200 inmediato — procesamos en background, serializado por teléfono
         const messages = parseIncomingMessages(body);
+        if (messages.length > 0) {
+          console.debug(`[webhook] Meta: ${messages.length} mensaje(s) recibido(s) — tipos: ${messages.map(m => m.type).join(", ")}`);
+        }
 
         for (const msg of messages) {
           enqueue(msg.from, async () => {
