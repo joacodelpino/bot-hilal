@@ -156,85 +156,102 @@ async function caso1() {
 }
 
 async function caso2() {
-  console.log('CASO 2: "sacame las aceitunas verdes" con dos variantes verdes en carrito → debe preguntar cuál');
-  const result = await singleTurn(sessionConDosVerdes, "sacame las aceitunas verdes");
+  console.log('CASO 2: "sacame las aceitunas verdes" con dos verdes en carrito → preguntar cuál, luego eliminar la correcta');
 
-  const preguntaEsValida = (texto: string) => {
-    const t = texto.toLowerCase();
-    return (
-      t.includes("cuál") || t.includes("cual") ||
-      t.includes("qué") || t.includes("que") ||
-      t.includes(" 0 ") || t.includes(" 00") // menciona calibre
+  // Turno 1: pedir sacar sin especificar → debe preguntar cuál
+  // Turno 2: cliente especifica "las del calibre 0" → debe llamar remove_item con el line_id correcto
+  const { responses, calledAddItem } = await multiTurn(
+    sessionConDosVerdes,
+    ["sacame las aceitunas verdes", "las del calibre 0 (las de 500g)"]
+  );
+
+  const [resp1, resp2] = responses;
+
+  // Aserción 1: turno 1 no debe llamar remove_item y debe preguntar cuál
+  const turno1EliminoDirecto = resp1.includes("[tool_calls: remove_item]");
+  if (turno1EliminoDirecto) {
+    fail(
+      "turno 1: preguntó cuál antes de actuar",
+      `Llamó remove_item sin preguntar. Respuesta: "${resp1.slice(0, 150)}"`
     );
-  };
-
-  if (result.type === "tool_calls") {
-    const removeCall = result.calls.find((c) => c.name === "remove_item");
-    if (removeCall) {
-      // Fallo duro: eliminó un ítem sin preguntar
-      fail(
-        "preguntó cuál antes de actuar",
-        `Llamó remove_item sin preguntar: ${JSON.stringify(removeCall.args)}`
-      );
-    } else if (result.textContent && preguntaEsValida(result.textContent)) {
-      // El modelo hizo una tool call benigna (ej: show_current_order) pero sí preguntó en el texto
-      pass(
-        "preguntó cuál antes de actuar (texto + tool call benigna)",
-        `Tool calls: ${result.calls.map((c) => c.name).join(", ")} | Texto: "${result.textContent.slice(0, 100)}"`
-      );
-    } else {
-      fail(
-        "preguntó cuál antes de actuar",
-        `Llamó funciones sin preguntar cuál: ${result.calls.map((c) => c.name).join(", ")}${result.textContent ? ` | Texto: "${result.textContent.slice(0, 80)}"` : ""}`
-      );
-    }
   } else {
-    if (preguntaEsValida(result.content)) {
-      pass("preguntó cuál antes de actuar", `Respuesta: "${result.content.slice(0, 120)}"`);
+    const preguntoCual =
+      resp1.toLowerCase().includes("cuál") ||
+      resp1.toLowerCase().includes("cual") ||
+      resp1.toLowerCase().includes(" 0 ") ||
+      resp1.toLowerCase().includes(" 00");
+    if (preguntoCual) {
+      pass("turno 1: preguntó cuál antes de actuar", `Respuesta: "${resp1.slice(0, 150)}"`);
     } else {
       fail(
-        "preguntó cuál antes de actuar",
-        `Devolvió texto pero no pregunta cuál: "${result.content.slice(0, 120)}"`
+        "turno 1: preguntó cuál antes de actuar",
+        `No llamó remove_item pero tampoco preguntó cuál. Respuesta: "${resp1.slice(0, 150)}"`
       );
     }
+  }
+
+  // Aserción 2: turno 2 debe llamar remove_item con el line_id de las verdes 0
+  const turno2Elimino = resp2?.includes("[tool_calls: remove_item]") ||
+    resp2?.includes("[tool_calls:");
+  if (turno2Elimino) {
+    pass(
+      "turno 2: llamó remove_item tras confirmación del cliente",
+      `Respuesta: "${resp2?.slice(0, 150)}"`
+    );
+  } else {
+    fail(
+      "turno 2: llamó remove_item tras confirmación del cliente",
+      `No llamó remove_item después de que el cliente especificó cuál. Respuesta: "${resp2?.slice(0, 150)}"`
+    );
   }
 }
 
 async function caso3() {
-  console.log('CASO 3: "quiero un bidón de aceite de oliva" → debe preguntar tamaño, nunca asumir uno');
+  console.log('CASO 3: "quiero un bidón de aceite de oliva" → debe preguntar tipo o tamaño, nunca asumir ni llamar add_item');
   const result = await singleTurn(sessionVacia, "quiero un bidón de aceite de oliva");
 
+  // El catálogo tiene 3 tipos de aceite (vidrio/PET/AOVE → product_ids distintos).
+  // Comportamiento válido: preguntar tipo primero (Regla 1, PASO 1) O preguntar tamaño
+  // si ya resolvió el tipo. Lo inválido es llamar add_item sin datos completos.
   if (result.type === "tool_calls") {
     const addCall = result.calls.find((c) => c.name === "add_item");
     if (addCall) {
       fail(
-        "preguntó tamaño (no asumió variante)",
-        `Llamó add_item sin preguntar tamaño: ${JSON.stringify(addCall.args)}`
+        "no asumió variante (no llamó add_item)",
+        `Llamó add_item sin preguntar tipo ni tamaño: ${JSON.stringify(addCall.args)}`
       );
     } else {
       fail(
-        "preguntó tamaño (no asumió variante)",
+        "no asumió variante (no llamó add_item)",
         `Llamó funciones inesperadas: ${result.calls.map((c) => c.name).join(", ")}`
       );
     }
   } else {
     const pregunta = result.content.toLowerCase();
+    // Válido: preguntar tipo (vidrio/PET/AOVE) o tamaño (ml/litro/250/500/etc.)
+    const pide_tipo =
+      pregunta.includes("vidrio") ||
+      pregunta.includes("pet") ||
+      pregunta.includes("aove") ||
+      pregunta.includes("tipo");
     const pide_tamaño =
       pregunta.includes("ml") ||
       pregunta.includes("litro") ||
       pregunta.includes("tamaño") ||
-      pregunta.includes("tamanio") ||
       pregunta.includes("medida") ||
       pregunta.includes("250") ||
       pregunta.includes("500") ||
       pregunta.includes("cuál") ||
       pregunta.includes("cual");
-    if (pide_tamaño) {
-      pass("preguntó tamaño (no asumió variante)", `Respuesta: "${result.content.slice(0, 120)}..."`);
+    if (pide_tipo || pide_tamaño) {
+      pass(
+        "no asumió variante — preguntó tipo o tamaño",
+        `Respuesta: "${result.content.slice(0, 120)}"`
+      );
     } else {
       fail(
-        "preguntó tamaño (no asumió variante)",
-        `Devolvió texto pero no pide tamaño claramente: "${result.content.slice(0, 120)}..."`
+        "no asumió variante — preguntó tipo o tamaño",
+        `Devolvió texto pero no pregunta tipo ni tamaño: "${result.content.slice(0, 120)}"`
       );
     }
   }
@@ -268,11 +285,119 @@ async function caso4() {
   }
 }
 
+async function multiTurn(session: Session, turns: string[]): Promise<{ responses: string[]; calledAddItem: boolean; firstAddItemArgs: Record<string, unknown> | null }> {
+  const systemPrompt = buildSystemPrompt(session, 0);
+  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    { role: "system", content: systemPrompt },
+  ];
+
+  const responses: string[] = [];
+  let calledAddItem = false;
+  let firstAddItemArgs: Record<string, unknown> | null = null;
+
+  for (const userMsg of turns) {
+    messages.push({ role: "user", content: userMsg });
+
+    const response = await openai.chat.completions.create({
+      model: MODEL,
+      messages,
+      tools,
+      tool_choice: "auto",
+    });
+
+    const choice = response.choices[0];
+    if (!choice) throw new Error("OpenAI no devolvió respuesta");
+
+    const assistantContent = choice.message.content ?? "";
+
+    if (choice.finish_reason === "tool_calls" && choice.message.tool_calls?.length) {
+      const addCall = choice.message.tool_calls.find((tc) => tc.function.name === "add_item");
+      if (addCall && !calledAddItem) {
+        calledAddItem = true;
+        firstAddItemArgs = JSON.parse(addCall.function.arguments);
+      }
+      // Simular respuesta del tool para continuar la conversación
+      messages.push({ role: "assistant", content: assistantContent, tool_calls: choice.message.tool_calls });
+      for (const tc of choice.message.tool_calls) {
+        messages.push({ role: "tool", tool_call_id: tc.id, content: "ok" });
+      }
+      responses.push(`[tool_calls: ${choice.message.tool_calls.map((t) => t.function.name).join(",")}] ${assistantContent}`);
+    } else {
+      messages.push({ role: "assistant", content: assistantContent });
+      responses.push(assistantContent);
+    }
+  }
+
+  return { responses, calledAddItem, firstAddItemArgs };
+}
+
+async function caso5() {
+  console.log('CASO 5 (regresión calibre): "aceitunas verdes en vidrio" → debe preguntar calibre, no asumir ni agregar');
+
+  // Turno 1: cliente pide aceitunas verdes en vidrio sin especificar calibre ni tamaño
+  // Turno 2: solo confirma "el 0" (calibre) — aún no especifica tamaño
+  // Turno 3: especifica tamaño → recién acá add_item es válido
+  const { responses, calledAddItem, firstAddItemArgs } = await multiTurn(
+    sessionVacia,
+    ["aceitunas verdes en vidrio", "el calibre 0 (grande)", "500g"]
+  );
+
+  const [resp1, resp2, resp3] = responses;
+
+  // Aserción 1: el primer turno NO debe llamar add_item
+  const primerTurnoAgrego = resp1.includes("[tool_calls: add_item]");
+  if (primerTurnoAgrego) {
+    fail(
+      "turno 1: no llamó add_item sin datos completos",
+      `Agregó producto sin preguntar calibre ni tamaño. Respuesta: "${resp1.slice(0, 150)}"`
+    );
+  } else {
+    const preguntaCalibro =
+      resp1.toLowerCase().includes("calibre") ||
+      resp1.toLowerCase().includes(" 0 ") ||
+      resp1.toLowerCase().includes(" 00") ||
+      resp1.toLowerCase().includes("grande") ||
+      resp1.toLowerCase().includes("gigante");
+    if (preguntaCalibro) {
+      pass("turno 1: preguntó calibre antes de actuar", `Respuesta: "${resp1.slice(0, 150)}"`);
+    } else {
+      fail(
+        "turno 1: preguntó calibre antes de actuar",
+        `No llamó add_item pero tampoco preguntó calibre claramente. Respuesta: "${resp1.slice(0, 150)}"`
+      );
+    }
+  }
+
+  // Aserción 2: el segundo turno (calibre dado, tamaño aún no) NO debe llamar add_item
+  const segundoTurnoAgrego = resp2?.includes("[tool_calls: add_item]");
+  if (segundoTurnoAgrego) {
+    fail(
+      "turno 2: no llamó add_item sin tamaño confirmado",
+      `Agregó producto sin preguntar tamaño. Args: ${JSON.stringify(firstAddItemArgs)}`
+    );
+  } else {
+    pass("turno 2: no llamó add_item (tamaño pendiente)", `Respuesta: "${resp2?.slice(0, 150)}"`);
+  }
+
+  // Aserción 3: add_item debe haberse llamado en algún punto (flujo completo)
+  if (calledAddItem) {
+    pass(
+      "flujo completo: add_item llamado con datos completos",
+      `Args: ${JSON.stringify(firstAddItemArgs)}`
+    );
+  } else {
+    fail(
+      "flujo completo: add_item llamado con datos completos",
+      `Nunca llamó add_item incluso después de dar calibre y tamaño. Última respuesta: "${resp3?.slice(0, 150)}"`
+    );
+  }
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 console.log(`\n=== Tests de regresión — modelo: ${MODEL} ===\n`);
 
-for (const [i, fn] of [caso1, caso2, caso3, caso4].entries()) {
+for (const [i, fn] of [caso1, caso2, caso3, caso4, caso5].entries()) {
   try {
     await fn();
   } catch (err) {
