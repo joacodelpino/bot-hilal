@@ -68,7 +68,10 @@ Bun.serve({
 
         if (!verifyMetaSignature(rawBody, signature)) {
           const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("cf-connecting-ip") ?? "unknown";
-          console.warn(`[webhook] Firma inválida o ausente — IP: ${ip}`);
+          const bodyPreview = new TextDecoder().decode(rawBody.slice(0, 200)).replace(/\n/g, " ");
+          console.warn(
+            `[webhook] Firma inválida o ausente — path: ${url.pathname} — IP: ${ip} — body[0..200]: ${bodyPreview}`
+          );
           return new Response("Unauthorized", { status: 401 });
         }
 
