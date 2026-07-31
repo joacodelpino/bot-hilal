@@ -1,9 +1,17 @@
-import { handleVerification, parseIncomingMessages } from "./whatsapp/webhook.ts";
+import { handleVerification, parseIncomingMessages, verifyMetaSignature } from "./whatsapp/webhook.ts";
 import { mirrorAndCheckStatus, mirrorBotReply, isConversationPaused, handleChatwootOutbound, detectConversationResolved } from "./chatwoot/chatwoot.ts";
 import { sendTextMessage } from "./whatsapp/sender.ts";
 import { transcribeAudio } from "./whatsapp/transcription.ts";
 import { processMessage } from "./bot.ts";
 import { getSession, updateSession } from "./session/session.ts";
+
+if (!process.env.META_APP_SECRET) {
+  console.error(
+    "[FATAL] META_APP_SECRET no está seteada. " +
+    "El bot no puede arrancar sin verificación de firma del webhook de Meta."
+  );
+  process.exit(1);
+}
 
 const PORT = parseInt(process.env.BOT_PORT ?? "3001");
 
@@ -52,9 +60,19 @@ Bun.serve({
       }
 
       if (req.method === "POST") {
+        // Leer raw body primero — el HMAC se calcula sobre los bytes exactos
+        const rawBody = await req.arrayBuffer();
+        const signature = req.headers.get("x-hub-signature-256");
+
+        if (!verifyMetaSignature(rawBody, signature)) {
+          const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("cf-connecting-ip") ?? "unknown";
+          console.warn(`[webhook] Firma inválida o ausente — IP: ${ip}`);
+          return new Response("Unauthorized", { status: 401 });
+        }
+
         let body: unknown;
         try {
-          body = await req.json();
+          body = JSON.parse(new TextDecoder().decode(rawBody));
         } catch {
           return new Response("Bad Request", { status: 400 });
         }
