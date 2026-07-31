@@ -10,6 +10,25 @@ const PORT = parseInt(process.env.BOT_PORT ?? "3001");
 // ── Cola en memoria por teléfono — serializa mensajes del mismo cliente ─────
 const phoneQueues = new Map<string, Promise<void>>();
 
+// ── Deduplicación por message_id — evita doble procesamiento por retries de Meta ─
+const DEDUP_TTL_MS = 5 * 60 * 1000; // 5 minutos
+const seenMessageIds = new Map<string, number>(); // messageId → expiresAt
+
+function isDuplicate(messageId: string): boolean {
+  const expiresAt = seenMessageIds.get(messageId);
+  if (expiresAt !== undefined && Date.now() < expiresAt) return true;
+  seenMessageIds.set(messageId, Date.now() + DEDUP_TTL_MS);
+  return false;
+}
+
+// Limpiar entries expiradas cada 5 minutos
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, expiresAt] of seenMessageIds) {
+    if (now >= expiresAt) seenMessageIds.delete(id);
+  }
+}, DEDUP_TTL_MS);
+
 function enqueue(telefono: string, fn: () => Promise<void>): void {
   const prev = phoneQueues.get(telefono) ?? Promise.resolve();
   const next = prev.then(fn, fn);
@@ -45,6 +64,10 @@ Bun.serve({
 
         for (const msg of messages) {
           enqueue(msg.from, async () => {
+            if (isDuplicate(msg.messageId)) {
+              console.debug(`[dedup] Mensaje duplicado ignorado: ${msg.messageId}`);
+              return;
+            }
             try {
               let bot_paused = false;
               let conv_id: string | undefined;
