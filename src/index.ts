@@ -1,6 +1,6 @@
 import { handleVerification, parseIncomingMessages, verifyMetaSignature } from "./whatsapp/webhook.ts";
 import { mirrorAndCheckStatus, mirrorBotReply, isConversationPaused, handleChatwootOutbound, detectConversationResolved } from "./chatwoot/chatwoot.ts";
-import { sendTextMessage } from "./whatsapp/sender.ts";
+import { sendTextMessage, showTypingIndicator } from "./whatsapp/sender.ts";
 import { transcribeAudio } from "./whatsapp/transcription.ts";
 import { processMessage } from "./bot.ts";
 import { getSession, updateSession } from "./session/session.ts";
@@ -156,6 +156,12 @@ Bun.serve({
                   try {
                     if (await isConversationPaused(conv_id)) return;
                   } catch {}
+                }
+                // Typing indicator — cosmético, fallo silencioso
+                try {
+                  await showTypingIndicator(msg.from, msg.messageId, reply.length);
+                } catch (err) {
+                  console.debug("[typing] Error mostrando indicador (continuando):", err);
                 }
                 await sendTextMessage(msg.from, reply);
                 if (conv_id) {
