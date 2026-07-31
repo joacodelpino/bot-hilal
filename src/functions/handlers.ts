@@ -9,7 +9,7 @@ import {
 } from "../session/session.ts";
 import { getContact, upsertContact } from "../session/contacts.ts";
 import { sendOrderToCRM, confirmedOrderSchema, type CRMOrderPayload } from "../crm-client.ts";
-import { getProduct, validateVariants } from "../catalog/catalog.ts";
+import { getProduct, validateVariants, getCategories, getProductsByCategory } from "../catalog/catalog.ts";
 import { escalateConversation } from "../chatwoot/chatwoot.ts";
 import { prisma } from "../db.ts";
 import type { CartItem, Session } from "../types.ts";
@@ -176,6 +176,49 @@ export async function handleConfirmOrder(telefono: string): Promise<ToolResult> 
     ok: true,
     session: { ...session, estado: "confirmado" },
     message: "Pedido confirmado y enviado. ¡Gracias! Nos ponemos en contacto a la brevedad.",
+  };
+}
+
+export function handleShowCatalog(args: { category?: string }): { ok: true; message: string } | { ok: false; error: string } {
+  const categories = getCategories();
+
+  if (!args.category) {
+    // Sin categoría: listar todas con cantidad de productos
+    const lines = categories.map((cat) => {
+      const count = getProductsByCategory(cat).length;
+      return `- ${cat} (${count} producto${count !== 1 ? "s" : ""})`;
+    });
+    return {
+      ok: true,
+      message: `Estas son nuestras categorías:\n${lines.join("\n")}\n\n¿Cuál te interesa?`,
+    };
+  }
+
+  // Con categoría: buscar match case-insensitive / parcial
+  const query = args.category.toLowerCase();
+  const matched = categories.find(
+    (cat) => cat.toLowerCase() === query || cat.toLowerCase().includes(query)
+  );
+
+  if (!matched) {
+    const lista = categories.map((c) => `- ${c}`).join("\n");
+    return {
+      ok: false,
+      error: `No encontré la categoría "${args.category}". Las categorías disponibles son:\n${lista}`,
+    };
+  }
+
+  const products = getProductsByCategory(matched);
+  const lines = products.map((p) => {
+    if (p.requires_specification && p.variant_options.length > 0) {
+      return `- ${p.product_name} — tamaños: ${p.variant_options.join(", ")}`;
+    }
+    return `- ${p.product_name}`;
+  });
+
+  return {
+    ok: true,
+    message: `${matched}:\n${lines.join("\n")}`,
   };
 }
 

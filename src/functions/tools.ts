@@ -185,6 +185,26 @@ export const tools: OpenAI.Chat.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
+      name: "show_catalog",
+      description:
+        "Mostrar productos disponibles. Sin category: lista las categorías disponibles. Con category: lista los productos de esa categoría con sus variantes de tamaño. Usar cuando el cliente pregunta qué hay disponible o por una categoría específica. NO usar si el cliente ya sabe lo que quiere y lo pide directamente.",
+      parameters: {
+        type: "object",
+        properties: {
+          category: {
+            type: "string",
+            description:
+              "Nombre de la categoría a mostrar (ej: 'Aceitunas rellenas', 'Aceites de oliva'). Omitir para listar todas las categorías disponibles.",
+          },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "escalate_to_human",
       description:
         "Derivar la conversación a un agente humano del equipo. Llamar cuando el cliente pide hablar con una persona, hace un reclamo sobre un pedido, o el bot no puede resolver la consulta tras 2 intentos.",

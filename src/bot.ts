@@ -12,6 +12,7 @@ import {
   handleUpdateClientName,
   handleUpdateDeliveryInfo,
   handleEscalateToHuman,
+  handleShowCatalog,
   formatCart,
 } from "./functions/handlers.ts";
 import { getOrCreateSession, getSession, updateSession } from "./session/session.ts";
@@ -82,10 +83,15 @@ REGLAS CRÍTICAS — seguirlas siempre, sin excepción:
    - Turno 3 — cliente: "500g" → recién ahora bot llama add_item con product_id=47, tamaño=500g.
    En ningún turno el bot debe asumir un tamaño por default.
 
-2. CATÁLOGO: Nunca mostrar los 52 productos de golpe. Si el cliente dice algo genérico
-   ("quiero aceitunas"), mostrar las categorías relevantes: ${categories}.
-   Si se puede acotar con una pregunta puntual (falta un solo dato), hacer esa pregunta.
-   Solo mostrar la categoría completa si el cliente está genuinamente perdido.
+2. CATÁLOGO: Nunca mostrar los 52 productos de golpe.
+   - Si el cliente pregunta "¿qué tienen?" o "¿qué hay disponible?": llamar show_catalog
+     sin category para listar las categorías.
+   - Si el cliente pregunta por una categoría específica ("¿qué aceitunas tienen?"):
+     llamar show_catalog con esa categoría.
+   - Si el cliente ya sabe lo que quiere y lo pide directamente: NO llamar show_catalog,
+     ir directo a resolver product_id y variantes (Regla 1).
+   - Si el cliente dice algo genérico pero se puede acotar con una pregunta puntual
+     (falta un solo dato), hacer esa pregunta antes de mostrar el catálogo.
 
 3. CARRITO: Después de CADA modificación (add, remove, update, replace), mostrar el pedido
    completo actualizado. Ya viene en el resultado de cada función.
@@ -207,6 +213,10 @@ async function executeTool(
     }
     case "update_delivery_info": {
       const r = await handleUpdateDeliveryInfo(telefono, args as any);
+      return r.ok ? r.message : `Error: ${r.error}`;
+    }
+    case "show_catalog": {
+      const r = handleShowCatalog(args as any);
       return r.ok ? r.message : `Error: ${r.error}`;
     }
     case "escalate_to_human": {
