@@ -4,6 +4,7 @@ import { sendTextMessage } from "./whatsapp/sender.ts";
 import { transcribeAudio } from "./whatsapp/transcription.ts";
 import { processMessage } from "./bot.ts";
 import { getSession, updateSession } from "./session/session.ts";
+import { checkRateLimit } from "./middleware/rateLimit.ts";
 
 if (!process.env.META_APP_SECRET) {
   console.error(
@@ -96,6 +97,16 @@ Bun.serve({
               }
 
               if (bot_paused) return;
+
+              // Rate limiting — mirror ya ocurrió, Chatwoot ve el mensaje
+              const rl = checkRateLimit(msg.from);
+              if (rl.blocked) {
+                await sendTextMessage(
+                  msg.from,
+                  "Estás enviando muchos mensajes seguidos. Esperá un momento y volvé a intentar."
+                );
+                return;
+              }
 
               // Chequeo local: si la sesión está escalada, el bot no responde.
               // El espejado ya ocurrió arriba, así que el agente humano ve el mensaje.
