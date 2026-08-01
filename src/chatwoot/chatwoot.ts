@@ -83,24 +83,37 @@ async function findOrCreateConversation(contactId: string): Promise<string> {
 // IDs de mensajes creados por el bot — para ignorarlos en el webhook outbound
 const botMessageIds = new Set<number>();
 
-async function mirrorTextMessage(convId: string, text: string, outgoing = false): Promise<void> {
-  const result = await chatwootFetch(`/conversations/${convId}/messages`, {
-    method: "POST",
-    body: JSON.stringify({
-      content: text,
-      message_type: outgoing ? "outgoing" : "incoming",
-      private: false,
-    }),
-  });
+// Contenidos pre-registrados antes del POST a Chatwoot — cubre la race condition
+// donde el webhook message_created llega antes de que vuelva la respuesta del POST
+// (y por tanto antes de que tengamos el ID para agregar a botMessageIds).
+const pendingBotContents = new Set<string>();
 
-  // Trackear mensajes outgoing del bot para no reenviarlos desde el webhook
-  if (outgoing && result?.id) {
-    botMessageIds.add(result.id);
-    // Limitar tamaño del Set para evitar memory leak
-    if (botMessageIds.size > 500) {
-      const oldest = [...botMessageIds].slice(0, 250);
-      oldest.forEach((id) => botMessageIds.delete(id));
+async function mirrorTextMessage(convId: string, text: string, outgoing = false): Promise<void> {
+  // Pre-registrar ANTES del POST para cerrar la race con el webhook outbound
+  if (outgoing) pendingBotContents.add(text);
+
+  try {
+    const result = await chatwootFetch(`/conversations/${convId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({
+        content: text,
+        message_type: outgoing ? "outgoing" : "incoming",
+        private: false,
+      }),
+    });
+
+    // Trackear por ID una vez que lo tenemos (path normal, sin race)
+    if (outgoing && result?.id) {
+      botMessageIds.add(result.id);
+      // Limitar tamaño del Set para evitar memory leak
+      if (botMessageIds.size > 500) {
+        const oldest = [...botMessageIds].slice(0, 250);
+        oldest.forEach((id) => botMessageIds.delete(id));
+      }
     }
+  } finally {
+    // Limpiar siempre, tanto si el POST tuvo éxito como si falló
+    if (outgoing) pendingBotContents.delete(text);
   }
 }
 
@@ -240,10 +253,17 @@ export function handleChatwootOutbound(payload: any): {
     return { shouldForward: false, phone: null, content: null };
   }
 
-  // FILTRO CLAVE: ignorar mensajes generados por el bot (trackeados por ID)
+  // FILTRO CLAVE: ignorar mensajes generados por el bot.
+  // Dos checks para cubrir la race condition entre mirrorBotReply y el webhook:
+  // 1. Por ID (path normal: respuesta del POST ya llegó)
   const msgId = payload.id;
   if (msgId && botMessageIds.has(msgId)) {
     botMessageIds.delete(msgId);
+    return { shouldForward: false, phone: null, content: null };
+  }
+  // 2. Por contenido pre-registrado (race: webhook llega antes que la respuesta del POST)
+  const rawContent = payload.content;
+  if (rawContent && pendingBotContents.has(rawContent)) {
     return { shouldForward: false, phone: null, content: null };
   }
 
