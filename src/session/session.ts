@@ -9,7 +9,6 @@ function toSession(row: any): Session {
     telefono_cliente: row.telefono_cliente,
     estado: row.estado as OrderStatus,
     items: row.items as CartItem[],
-    historial: (row.historial as any[]) ?? [],
     nombre: row.nombre,
     apellido: row.apellido,
     direccion: row.direccion,
@@ -24,7 +23,7 @@ function toSession(row: any): Session {
 export async function getOrCreateSession(telefono: string): Promise<Session> {
   const row = await prisma.pedidos_en_curso.upsert({
     where: { telefono_cliente: telefono },
-    create: { telefono_cliente: telefono, estado: "iniciado", items: [] },
+    create: { telefono_cliente: telefono, estado: "en_curso", items: [] },
     update: {},
   });
   return toSession(row);
@@ -64,7 +63,7 @@ export async function addItem(
     cantidad,
   };
   const items = [...session.items, newItem];
-  return updateSession(telefono, { items, estado: "armando_pedido" });
+  return updateSession(telefono, { items, estado: "en_curso" });
 }
 
 export async function removeItem(
@@ -108,6 +107,6 @@ export async function replaceItem(
 export async function clearSession(telefono: string): Promise<void> {
   await prisma.pedidos_en_curso.update({
     where: { telefono_cliente: telefono },
-    data: { items: [], historial: [], estado: "iniciado", direccion: null, horario: null, notas: null },
+    data: { items: [], estado: "en_curso", direccion: null, horario: null, notas: null },
   });
 }

@@ -170,59 +170,33 @@ async function updateContactAttributes(
   });
 }
 
-// ─── Escalación ──────────────────────────────────────────────────────────────
+// ─── Notas privadas (V2) ─────────────────────────────────────────────────────
 
 /**
- * Marca la conversación como escalada en Chatwoot:
- * - Agrega etiqueta "escalado" (visible en la UI sin config extra)
- * - Agrega nota privada con el motivo para el agente que tome la conversación
+ * Publica una nota privada en una conversación de Chatwoot.
+ * Visible solo para agentes, nunca para el cliente.
+ * Fallo silencioso — una nota perdida no debe romper el flujo.
  */
-export async function escalateConversation(telefono: string, motivo: string): Promise<void> {
-  const contact = await getContact(telefono);
-  const contactId = await findOrCreateContact(telefono, contact?.nombre_apellido);
-  const convId = await findOrCreateConversation(contactId);
-
-  await chatwootFetch(`/conversations/${convId}/labels`, {
-    method: "POST",
-    body: JSON.stringify({ labels: ["escalado"] }),
-  });
-
-  await chatwootFetch(`/conversations/${convId}/messages`, {
-    method: "POST",
-    body: JSON.stringify({
-      content: `[BOT - Escalación] ${motivo}`,
-      message_type: "outgoing",
-      private: true,
-    }),
-  });
-
-  // Asignar al equipo si está configurado — fallo no-fatal
-  const teamId = process.env.CHATWOOT_TEAM_ID;
-  if (teamId) {
-    try {
-      await chatwootFetch(`/conversations/${convId}/assignments`, {
-        method: "POST",
-        body: JSON.stringify({ team_id: Number(teamId) }),
-      });
-    } catch (err) {
-      console.error(
-        `[chatwoot] Error asignando conversación ${convId} al equipo ${teamId} (etiqueta y nota ya creadas):`,
-        err
-      );
+export async function postPrivateNote(convId: string, contenido: string): Promise<void> {
+  try {
+    const result = await chatwootFetch(`/conversations/${convId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({
+        content: contenido,
+        message_type: "outgoing",
+        private: true,
+      }),
+    });
+    if (result?.id) {
+      botMessageIds.add(result.id);
+      if (botMessageIds.size > 500) {
+        const oldest = [...botMessageIds].slice(0, 250);
+        oldest.forEach((id) => botMessageIds.delete(id));
+      }
     }
+  } catch (err) {
+    console.error(`[chatwoot] Error publicando nota privada en conversación ${convId}:`, err);
   }
-}
-
-/**
- * Detecta si un webhook de Chatwoot corresponde a una conversación resuelta.
- * Retorna el teléfono normalizado del cliente si es así, null en caso contrario.
- */
-export function detectConversationResolved(payload: any): string | null {
-  if (payload.event !== "conversation_status_changed") return null;
-  if (payload.conversation?.status !== "resolved") return null;
-  const phone = payload.conversation?.meta?.sender?.phone_number;
-  if (!phone) return null;
-  return String(phone).replace(/^\+/, "");
 }
 
 // ─── Webhook outbound: Chatwoot → WhatsApp ──────────────────────────────────
