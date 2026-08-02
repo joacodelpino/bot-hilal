@@ -170,6 +170,35 @@ async function updateContactAttributes(
   });
 }
 
+// ─── Notas privadas (V2) ─────────────────────────────────────────────────────
+
+/**
+ * Publica una nota privada en una conversación de Chatwoot.
+ * Visible solo para agentes, nunca para el cliente.
+ * Fallo silencioso — una nota perdida no debe romper el flujo.
+ */
+export async function postPrivateNote(convId: string, contenido: string): Promise<void> {
+  try {
+    const result = await chatwootFetch(`/conversations/${convId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({
+        content: contenido,
+        message_type: "outgoing",
+        private: true,
+      }),
+    });
+    if (result?.id) {
+      botMessageIds.add(result.id);
+      if (botMessageIds.size > 500) {
+        const oldest = [...botMessageIds].slice(0, 250);
+        oldest.forEach((id) => botMessageIds.delete(id));
+      }
+    }
+  } catch (err) {
+    console.error(`[chatwoot] Error publicando nota privada en conversación ${convId}:`, err);
+  }
+}
+
 // ─── Escalación ──────────────────────────────────────────────────────────────
 
 /**

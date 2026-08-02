@@ -1,5 +1,5 @@
 import { handleVerification, parseIncomingMessages, verifyMetaSignature } from "./whatsapp/webhook.ts";
-import { mirrorAndCheckStatus, handleChatwootOutbound, detectConversationResolved } from "./chatwoot/chatwoot.ts";
+import { mirrorAndCheckStatus, handleChatwootOutbound, detectConversationResolved, postPrivateNote } from "./chatwoot/chatwoot.ts";
 import { sendTextMessage } from "./whatsapp/sender.ts";
 import { transcribeAudio } from "./whatsapp/transcription.ts";
 import { processMessage } from "./bot.ts";
@@ -149,6 +149,7 @@ Bun.serve({
 
               // Resolver el texto a procesar según el tipo de mensaje
               let textoParaProcesar: string | null = null;
+              let transcripcion: string | null = null;
 
               if (msg.type === "text" && msg.text) {
                 textoParaProcesar = msg.text;
@@ -166,14 +167,20 @@ Bun.serve({
                   return;
                 }
                 textoParaProcesar = tr.text;
+                transcripcion = tr.text;
               } else {
                 // V2: el agente ve el multimedia en Chatwoot y responde él
                 return;
               }
 
               const reply = await processMessage(msg.from, textoParaProcesar);
-              if (reply) {
-                console.log(`[ANALISIS] ${maskPhone(msg.from)} → ${reply}`);
+              if (reply && conv_id) {
+                let nota = "─── Análisis del bot ───\n";
+                if (transcripcion) {
+                  nota += `Transcripción: "${transcripcion}"\n\n`;
+                }
+                nota += reply;
+                await postPrivateNote(conv_id, nota);
               }
             } catch (err) {
               console.error("[webhook] Error procesando mensaje:", err);
