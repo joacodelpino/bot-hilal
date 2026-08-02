@@ -12,7 +12,6 @@ import {
   handleRepeatLastOrder,
   handleUpdateClientName,
   handleUpdateDeliveryInfo,
-  handleEscalateToHuman,
   handleShowCatalog,
   formatCart,
 } from "./functions/handlers.ts";
@@ -102,10 +101,6 @@ async function executeTool(
     }
     case "show_catalog": {
       const r = handleShowCatalog(args as any);
-      return r.ok ? r.message : `Error: ${r.error}`;
-    }
-    case "escalate_to_human": {
-      const r = await handleEscalateToHuman(telefono, args as any);
       return r.ok ? r.message : `Error: ${r.error}`;
     }
     default:

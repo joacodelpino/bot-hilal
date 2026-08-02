@@ -20,13 +20,12 @@ export interface CartItem {
 
 // ─── Sesión (pedidos_en_curso) ────────────────────────────────────────────────
 
-export type OrderStatus = "iniciado" | "armando_pedido" | "confirmado" | "escalado";
+export type OrderStatus = "en_curso" | "confirmado";
 
 export interface Session {
   telefono_cliente: string;
   estado: OrderStatus;
   items: CartItem[];
-  historial: any[];
   nombre: string | null;
   apellido: string | null;
   direccion: string | null;

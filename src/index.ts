@@ -1,9 +1,8 @@
 import { handleVerification, parseIncomingMessages, verifyMetaSignature } from "./whatsapp/webhook.ts";
-import { mirrorAndCheckStatus, handleChatwootOutbound, detectConversationResolved, postPrivateNote } from "./chatwoot/chatwoot.ts";
+import { mirrorAndCheckStatus, handleChatwootOutbound, postPrivateNote } from "./chatwoot/chatwoot.ts";
 import { sendTextMessage } from "./whatsapp/sender.ts";
 import { transcribeAudio } from "./whatsapp/transcription.ts";
 import { analyzeMessage } from "./bot.ts";
-import { getSession, updateSession } from "./session/session.ts";
 import { checkRateLimit } from "./middleware/rateLimit.ts";
 import { maskPhone } from "./utils/mask.ts";
 
@@ -75,20 +74,7 @@ Bun.serve({
           try { parsedPayload = JSON.parse(new TextDecoder().decode(rawBody)); } catch { /* ignorar */ }
           const isChatwoot = (parsedPayload as any)?.account?.id !== undefined;
           if (isChatwoot) {
-            // message_created ya lo maneja /webhooks/chatwoot-outbound — no procesar acá
-            // para evitar doble reenvío (botMessageIds se consume en el primer handler).
-            // Solo procesar conversation_status_changed (resolve → bot retoma control).
-            const resolvedPhone = detectConversationResolved(parsedPayload);
-            if (resolvedPhone) {
-              try {
-                const session = await getSession(resolvedPhone);
-                if (session?.estado === "escalado") {
-                  const nuevoEstado = session.items.length > 0 ? "armando_pedido" : "iniciado";
-                  await updateSession(resolvedPhone, { estado: nuevoEstado });
-                  console.log(`[chatwoot] Conversación resuelta (inbox) — bot retoma para ${maskPhone(resolvedPhone)}`);
-                }
-              } catch { /* ignorar */ }
-            }
+            // Chatwoot webhook llegó por la URL del inbox — ya se maneja en /webhooks/chatwoot-outbound
             return new Response("OK", { status: 200 });
           }
 
@@ -132,19 +118,6 @@ Bun.serve({
                   "Estás enviando muchos mensajes seguidos. Esperá un momento y volvé a intentar."
                 );
                 return;
-              }
-
-              // Chequeo local: si la sesión está escalada, el bot no responde.
-              // El espejado ya ocurrió arriba, así que el agente humano ve el mensaje.
-              // TODO: implementar auto-resolve como red de seguridad para conversaciones
-              // que queden en estado "escalado" sin que el empleado marque Resolved.
-              // Opción recomendada: Automation Rules de Chatwoot ("si etiqueta=escalado
-              // y sin actividad > Xh, auto-resolver"). Ver: Chatwoot → Settings → Automation.
-              try {
-                const session = await getSession(msg.from);
-                if (session?.estado === "escalado") return;
-              } catch {
-                // Si falla el chequeo de sesión, continuar con flujo normal
               }
 
               // Resolver el texto a procesar según el tipo de mensaje
@@ -210,21 +183,6 @@ Bun.serve({
           await sendTextMessage(phone, content);
         } catch (err) {
           console.error("[chatwoot-outbound] Error enviando a WhatsApp:", err);
-        }
-      }
-
-      // Detectar conversación resuelta → el bot retoma el control
-      const resolvedPhone = detectConversationResolved(payload);
-      if (resolvedPhone) {
-        try {
-          const session = await getSession(resolvedPhone);
-          if (session?.estado === "escalado") {
-            const nuevoEstado = session.items.length > 0 ? "armando_pedido" : "iniciado";
-            await updateSession(resolvedPhone, { estado: nuevoEstado });
-            console.log(`[chatwoot] Conversación resuelta — bot retoma para ${maskPhone(resolvedPhone)} (estado: ${nuevoEstado})`);
-          }
-        } catch (err) {
-          console.error("[chatwoot] Error al procesar conversation resolved:", err);
         }
       }
 
