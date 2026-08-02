@@ -10,7 +10,6 @@ import {
 import { getContact, upsertContact } from "../session/contacts.ts";
 import { sendOrderToCRM, confirmedOrderSchema, type CRMOrderPayload } from "../crm-client.ts";
 import { getProduct, validateVariants, getCategories, getProductsByCategory } from "../catalog/catalog.ts";
-import { escalateConversation } from "../chatwoot/chatwoot.ts";
 import { prisma } from "../db.ts";
 import { maskPhone } from "../utils/mask.ts";
 import type { CartItem, Session } from "../types.ts";
@@ -163,7 +162,7 @@ export async function handleConfirmOrder(telefono: string): Promise<ToolResult> 
   await sendOrderToCRM(crmPayload);
 
   // Transacción atómica: si algo falla aquí, el CRM ya recibió el pedido
-  // pero la sesión local queda en "armando_pedido" → el log permite reconciliar a mano.
+  // pero la sesión local queda en "en_curso" → el log permite reconciliar a mano.
   try {
     await prisma.$transaction(async (tx) => {
       // recordConfirmedOrder: incrementa contador y guarda snapshot del último pedido
@@ -175,10 +174,9 @@ export async function handleConfirmOrder(telefono: string): Promise<ToolResult> 
         update: { cantidad_pedidos_confirmados: count, ultimo_pedido_items: session.items as any },
       });
 
-      // updateSession: marca la sesión como confirmada y limpia el historial
       await tx.pedidos_en_curso.update({
         where: { telefono_cliente: telefono },
-        data: { estado: "confirmado", historial: [] },
+        data: { estado: "confirmado" },
       });
     });
   } catch (err) {
@@ -240,22 +238,6 @@ export function handleShowCatalog(args: { category?: string }): { ok: true; mess
   };
 }
 
-export async function handleEscalateToHuman(
-  telefono: string,
-  args: { motivo: string }
-): Promise<ToolResult> {
-  // Marcar conversación en Chatwoot (etiqueta + nota privada) antes de actualizar sesión
-  // para que el agente reciba el contexto incluso si el paso local falla después
-  await escalateConversation(telefono, args.motivo);
-
-  const session = await updateSession(telefono, { estado: "escalado" });
-  return {
-    ok: true,
-    session,
-    message: "Te comunico con una persona del equipo. En un momento te atienden.",
-  };
-}
-
 export async function handleCancelOrder(telefono: string): Promise<ToolResult> {
   await clearSession(telefono);
   const session = await getOrCreateSession(telefono);
@@ -287,7 +269,7 @@ export async function handleRepeatLastOrder(telefono: string): Promise<ToolResul
     line_id: randomUUID(),
   }));
 
-  const session = await updateSession(telefono, { items, estado: "armando_pedido", historial: [] });
+  const session = await updateSession(telefono, { items, estado: "en_curso" });
   return {
     ok: true,
     session,

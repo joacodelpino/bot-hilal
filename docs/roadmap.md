@@ -1,33 +1,79 @@
-# Roadmap / Pendientes
+# Roadmap / Pendientes — V2
 
-Estado actual: **MVP funcional**. El bot recibe pedidos por WhatsApp, los arma con IA y los espeja en Chatwoot.
+Estado actual: **inicio del refactor a arquitectura human-in-the-loop**.
 
-## Pendientes para producción
+La V1 (bot autónomo) está tageada como `v1.0.0` y quedó funcional pero descartada por no determinismo. Ver `CLAUDE.md` → "Por qué existe la V2".
 
-### Prioridad alta
+## Infraestructura ya lista (heredada de V1, no tocar)
 
-- [ ] **Conectar API del CRM** — Verificar que el endpoint `/api/orders/incoming` del CRM (HilalSistema-V2) acepte el payload `ConfirmedOrder`. Actualmente el POST se hace pero no se ha validado el formato contra el CRM real.
-- [ ] **Transcripción de audio** — Actualmente el bot responde "escribime en texto" cuando recibe un audio. Implementar transcripción con OpenAI Whisper y procesar el texto resultante.
-- [ ] **Mostrar MVP al cliente** — Requerimiento de ingeniería: validar el flujo completo con el equipo de Hilal, recoger feedback y ajustar reglas del system prompt.
+Todo esto funciona y se reutiliza tal cual:
 
-### Prioridad media
+- ✅ Meta Cloud API v22.0 (webhook, envío, descarga de media)
+- ✅ Chatwoot self-hosted con HTTPS y dominio propio
+- ✅ Webhooks bidireccionales Meta ↔ bot ↔ Chatwoot
+- ✅ Agentes, equipos, etiquetas y respuestas predefinidas configurados
+- ✅ Transcripción de audio (`gpt-4o-mini-transcribe`)
+- ✅ Catálogo estructurado (52 productos, 11 categorías)
+- ✅ Integración con CRM (payload validado con Zod `.strict()`, timeout, reintentos)
+- ✅ Seguridad: firma HMAC de Meta, rate limiting, deduplicación, enmascaramiento de logs, error handling global
+- ✅ Deploy en Dokploy con Traefik + Let's Encrypt
 
-- [ ] **Optimización del system prompt** — El catálogo completo (52 productos en JSON) se inyecta en cada turno. Evaluar: reducir el JSON a campos mínimos, o usar embeddings para enviar solo productos relevantes.
-- [ ] **Tests de integración end-to-end** — Los tests actuales prueban lógica de tools con estado inyectado. Falta un test que simule una secuencia real de mensajes turno a turno (el test-multiturn es un primer paso).
-- [ ] **Manejo de errores del CRM** — Si `sendOrderToCRM` falla, el pedido queda como "confirmado" en la sesión pero no llegó al CRM. Implementar retry o cola de fallidos.
+## Refactor V2 — pendientes
 
-### Prioridad baja / futuro
+### Bloque 1: Cambiar la dirección del output
 
-- [ ] **Replicabilidad multi-cliente** — Refactorizar para que el bot sea configurable por cliente (catálogo, system prompt, credenciales). Actualmente todo es hardcoded para Hilal.
-- [ ] **Escalabilidad** — La cola por teléfono es in-memory. Para múltiples instancias del bot, migrar a una cola distribuida (Redis, BullMQ). Para el volumen actual de Hilal no es necesario.
-- [ ] **Limpieza de código** — Eliminar imports no usados, consolidar instancias de PrismaClient (actualmente hay una por módulo), revisar types con `any`.
-- [ ] **CI/CD** — Automatizar build + deploy con GitHub Actions o similar en vez del proceso manual (git pull + docker build + redeploy).
-- [ ] **Métricas y observabilidad** — Logging estructurado, métricas de latencia por turno, tasa de errores de OpenAI, dashboard en Grafana o similar.
-- [ ] **Rate limiting** — Limitar mensajes por teléfono por minuto para evitar abuso.
+- [ ] **Cortar el envío al cliente** — El bot deja de llamar `sendTextMessage()` con contenido del LLM. Verificar con grep que no queda ninguna ruta donde el output del análisis llegue a Meta.
+- [ ] **Notas privadas** — Publicar el resultado del análisis como mensaje `private: true` en Chatwoot.
+- [ ] **Plantillas de nota** — Formato fijo en código (transcripción / productos identificados / carrito sugerido / qué falta / contexto del cliente). Sin redacción libre del LLM.
+
+### Bloque 2: Simplificar el motor
+
+- [ ] **Reescribir el system prompt** — De 12 reglas conversacionales a un extractor de intención (~20 líneas). Sacar todo lo que sea política comercial, formato de respuesta o manejo de conversación.
+- [ ] **Eliminar el historial de la DB** — Quitar la columna `historial` de `pedidos_en_curso` y toda la lógica de `trimHistorial`. Cada mensaje se analiza de forma independiente.
+- [ ] **Simplificar `estado`** — Solo `"en_curso"` y `"confirmado"`. Eliminar `"iniciado"`, `"armando_pedido"`, `"escalado"`.
+- [ ] **Eliminar la lógica de escalación** — `escalate_to_human`, `clearEscalation`, el flag de pausa por `Resolved`. En V2 el humano siempre está a cargo, no hay nada que escalar.
+
+### Bloque 3: Comandos del agente
+
+- [ ] **Parser de comandos** — Detectar notas privadas que empiezan con `/` en el webhook outbound de Chatwoot. Parsing determinístico con regex, no LLM.
+- [ ] **Implementar los 8 comandos** — `/pedido`, `/agregar`, `/quitar`, `/cantidad`, `/nombre`, `/repetir`, `/limpiar`, `/enviar_pedido`.
+- [ ] **Mensaje de ayuda** — Comando desconocido o mal escrito devuelve la lista de comandos válidos.
+
+### Bloque 4: Testing
+
+- [ ] **Tests de las plantillas** — Verificar que la nota privada tiene el formato esperado para cada tipo de análisis.
+- [ ] **Tests de comandos** — Cada comando con input válido, input inválido y edge cases (carrito vacío, línea inexistente).
+- [ ] **Portar los 4 casos de regresión de V1** — Verificados ahora sobre el contenido de la nota privada, no sobre lo que recibe el cliente.
+- [ ] **Test de aislamiento** — Confirmar que ninguna ruta del código envía contenido del LLM al cliente.
+
+### Bloque 5: Operación
+
+- [ ] **Ambiente de staging** — Chip prepago comprado, falta registrarlo en Meta y levantar la instancia de staging con su propio `WHATSAPP_PHONE_NUMBER_ID`.
+- [ ] **Configurar info de WhatsApp en Meta** — Foto de perfil, descripción del negocio, horarios.
+- [ ] **Sesión de onboarding con el equipo** — 30 minutos mostrando el flujo diario en Chatwoot + los comandos del bot. Los empleados nunca usaron Chatwoot.
+- [ ] **Documentar los comandos para el equipo** — Una hoja simple (no técnica) con los 8 comandos y cuándo usar cada uno.
+
+## Decisiones pendientes de confirmar con el dueño
+
+- [ ] **Dirección y horario** — ¿El agente los pide siempre, o se coordinan después? Hilal atiende mayoristas y precio/logística se negocian aparte, así que probablemente el pedido va al CRM sin esos datos.
+- [ ] **Aliases de clientes** — Sinónimos reales que usan los clientes para categorías grandes (rellenas, calibre vidrio/PET).
+- [ ] **Perfil del equipo** — ¿Cuántas personas atienden y hace cuánto trabajan ahí? ¿Hoy cómo cargan los pedidos al CRM? ¿Cuánto tardan por pedido? Define cuántos comandos y cuánto detalle en las notas privadas hacen falta.
+
+### Resueltas
+
+- ✅ **Producto "Aji" (id 46) vs "Aji huchukita" (id 45)** — Son productos distintos, no una duplicación.
+- ✅ **Cantidad de puestos de atención** — 2 computadoras.
+
+## Futuro (post-entrega a Hilal)
+
+- [ ] **Replicabilidad multi-cliente** — Separar `bot-core` de `clients/<cliente>` con catálogo, plantillas y credenciales por cliente. Decisión explícita de NO hacer multi-tenant desde el día uno.
+- [ ] **Métricas del asistente** — Cuántas sugerencias del bot usa el agente vs cuántas ignora. Sirve para medir si el bot realmente ahorra tiempo.
+- [ ] **CI/CD** — Automatizar build + deploy en vez del proceso manual.
+- [ ] **Cola distribuida** — Si se escala a múltiples instancias, migrar `phoneQueues` de memoria a Redis/BullMQ. Para el volumen de Hilal no hace falta.
 
 ## Deuda técnica conocida
 
-- **Múltiples instancias de PrismaClient** — `session.ts`, `contacts.ts` y los tests cada uno crean su propia instancia. Debería ser un singleton compartido.
-- **`searchProducts()` no se usa** — La función existe en `catalog.ts` pero nunca se invoca. El matching de productos depende 100% del LLM.
-- **Tests del webhook/sender sin mocks** — No hay tests unitarios para la capa de WhatsApp ni Chatwoot. Solo tests funcionales que requieren OpenAI.
-- **`NODE_TLS_REJECT_UNAUTHORIZED=0`** — Se usa en producción para evitar errores de TLS con Chatwoot. Debería resolverse con certificados correctos.
+- **Múltiples instancias de PrismaClient** — `session.ts`, `contacts.ts` y los tests crean cada uno la suya. Debería ser singleton.
+- **`NODE_TLS_REJECT_UNAUTHORIZED=0`** — Se usa para evitar errores de TLS con Chatwoot. Debería resolverse con certificados correctos.
+- **`searchProducts()` sin usar** — Existe en `catalog.ts` pero nunca se invoca. En V2 podría ser útil para el comando `/agregar`.
+- **Baja definitiva de n8n** — Las llamadas del CRM están desactivadas pero los contenedores de Evolution API / n8n siguen en la VPS. Falta `docker compose down -v`.
