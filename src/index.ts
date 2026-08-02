@@ -2,7 +2,7 @@ import { handleVerification, parseIncomingMessages, verifyMetaSignature } from "
 import { mirrorAndCheckStatus, handleChatwootOutbound, detectConversationResolved, postPrivateNote } from "./chatwoot/chatwoot.ts";
 import { sendTextMessage } from "./whatsapp/sender.ts";
 import { transcribeAudio } from "./whatsapp/transcription.ts";
-import { processMessage } from "./bot.ts";
+import { analyzeMessage } from "./bot.ts";
 import { getSession, updateSession } from "./session/session.ts";
 import { checkRateLimit } from "./middleware/rateLimit.ts";
 import { maskPhone } from "./utils/mask.ts";
@@ -173,7 +173,7 @@ Bun.serve({
                 return;
               }
 
-              const reply = await processMessage(msg.from, textoParaProcesar);
+              const reply = await analyzeMessage(msg.from, textoParaProcesar);
               if (reply && conv_id) {
                 let nota = "─── Análisis del bot ───\n";
                 if (transcripcion) {
