@@ -1,6 +1,6 @@
 import { handleVerification, parseIncomingMessages, verifyMetaSignature } from "./whatsapp/webhook.ts";
-import { mirrorAndCheckStatus, mirrorBotReply, isConversationPaused, handleChatwootOutbound, detectConversationResolved } from "./chatwoot/chatwoot.ts";
-import { sendTextMessage, showTypingIndicator } from "./whatsapp/sender.ts";
+import { mirrorAndCheckStatus, handleChatwootOutbound, detectConversationResolved } from "./chatwoot/chatwoot.ts";
+import { sendTextMessage } from "./whatsapp/sender.ts";
 import { transcribeAudio } from "./whatsapp/transcription.ts";
 import { processMessage } from "./bot.ts";
 import { getSession, updateSession } from "./session/session.ts";
@@ -155,47 +155,25 @@ Bun.serve({
               } else if (msg.type === "audio" && msg.mediaId) {
                 const tr = await transcribeAudio(msg.mediaId, msg.from);
                 if (!tr.ok) {
-                  const audioError =
-                    tr.reason === "too_long"
-                      ? "El audio es muy largo, ¿podés resumirlo en un mensaje más corto o escribirlo?"
-                      : tr.reason === "empty"
-                      ? "No pude entender el audio, ¿podés repetirlo o escribirlo?"
-                      : "No pude escuchar tu mensaje de voz, ¿podés escribirlo o intentar de nuevo?";
-                  await sendTextMessage(msg.from, audioError);
+                  if (tr.reason === "too_long") {
+                    await sendTextMessage(
+                      msg.from,
+                      "El audio es muy largo, ¿podés resumirlo en un mensaje más corto o escribirlo?"
+                    );
+                  } else {
+                    console.warn(`[audio] Transcripción fallida (${tr.reason}) — ${maskPhone(msg.from)}`);
+                  }
                   return;
                 }
                 textoParaProcesar = tr.text;
               } else {
-                await sendTextMessage(
-                  msg.from,
-                  "No puedo procesar ese tipo de mensaje (imágenes, ubicaciones, etc.). ¿Podés describirlo en texto?"
-                );
+                // V2: el agente ve el multimedia en Chatwoot y responde él
                 return;
               }
 
               const reply = await processMessage(msg.from, textoParaProcesar);
               if (reply) {
-                // Revalidar bot_paused antes de enviar: un agente pudo
-                // asignarse la conversación mientras OpenAI procesaba
-                if (conv_id) {
-                  try {
-                    if (await isConversationPaused(conv_id)) return;
-                  } catch {}
-                }
-                // Typing indicator — cosmético, fallo silencioso
-                try {
-                  await showTypingIndicator(msg.from, msg.messageId, reply.length);
-                } catch (err) {
-                  console.debug("[typing] Error mostrando indicador (continuando):", err);
-                }
-                await sendTextMessage(msg.from, reply);
-                if (conv_id) {
-                  try {
-                    await mirrorBotReply(conv_id, reply);
-                  } catch (err) {
-                    console.error("[chatwoot] Error espejando reply (continuando):", err);
-                  }
-                }
+                console.log(`[ANALISIS] ${maskPhone(msg.from)} → ${reply}`);
               }
             } catch (err) {
               console.error("[webhook] Error procesando mensaje:", err);
